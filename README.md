@@ -9,7 +9,7 @@ A simple macOS menu-bar utility that gives quick access to [TerrierGPT](https://
 - **Reload** and **Quit** buttons, plus keyboard shortcuts (**⌘R** / **⌘Q**)
 - **Launch at Login** checkbox (via `SMAppService`)
 - External links open in your default browser; BU/SSO navigation stays in the panel
-- No Dock icon — stays out of the way (`LSUIElement`)
+- No Dock icon: it stays out of the way (`LSUIElement`)
 
 ## How it was made
 
