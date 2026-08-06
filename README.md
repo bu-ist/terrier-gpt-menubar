@@ -14,9 +14,9 @@ A simple macOS menu-bar utility that gives quick access to [TerrierGPT](https://
 ## How it was made
 
 - Native macOS app built in Xcode with **SwiftUI** + **WKWebView**
-- Pure menu-bar app
+- Pure menu bar app
 - Embeds the official TerrierGPT web UI so login, agents, and models work as usual
-- Built from scratch as a learning project
+- Built from scratch
 
 ## Requirements
 
@@ -47,7 +47,7 @@ The app appears in the menu bar (not the Dock). Click the sparkles icon to open 
 
 This project does **not** ship with a personal Apple Development Team ID. Each person who clones the repo must select their own team under **Signing & Capabilities**. That is normal for shared Xcode apps.
 
-There are no API keys or server secrets in this project — it only loads the public TerrierGPT website.
+There are no API keys or server secrets in this project: it only loads the public TerrierGPT website.
 
 ## Project layout
 
