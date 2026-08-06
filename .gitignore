@@ -1,0 +1,49 @@
+# Xcode
+build/
+DerivedData/
+*.xcuserstate
+*.xcscmblueprint
+*.xccheckout
+xcuserdata/
+*.moved-aside
+*.hmap
+*.ipa
+*.dSYM.zip
+*.dSYM
+
+# Swift Package Manager
+.build/
+.swiftpm/
+Packages/
+Package.resolved
+
+# CocoaPods (if used later)
+Pods/
+
+# Carthage (if used later)
+Carthage/Build/
+
+# macOS
+.DS_Store
+**/.DS_Store
+
+# Playgrounds
+timeline.xctimeline
+playground.xcworkspace
+
+# IDEs / editors
+.idea/
+*.swp
+*~
+
+# Code signing / secrets (local only)
+*.mobileprovision
+*.provisionprofile
+*.p12
+*.cer
+*.certSigningRequest
+Secrets.xcconfig
+*.xcconfig.local
+
+# Archives
+*.xcarchive
