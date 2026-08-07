@@ -5,6 +5,8 @@ import AppKit
 struct WebView: NSViewRepresentable {
     let url: URL
     var reloadTrigger: UUID
+    /// When this changes, load `url` from scratch (used after logout).
+    var loadHomeTrigger: UUID
 
     func makeCoordinator() -> Coordinator {
         Coordinator(homeURL: url)
@@ -28,12 +30,14 @@ struct WebView: NSViewRepresentable {
 
     func updateNSView(_ webView: WKWebView, context: Context) {
         context.coordinator.reloadIfNeeded(trigger: reloadTrigger)
+        context.coordinator.loadHomeIfNeeded(trigger: loadHomeTrigger)
     }
 
     final class Coordinator: NSObject, WKNavigationDelegate, WKUIDelegate {
         let homeURL: URL
         weak var webView: WKWebView?
         private var lastReloadTrigger: UUID?
+        private var lastHomeTrigger: UUID?
 
         init(homeURL: URL) {
             self.homeURL = homeURL
@@ -50,13 +54,30 @@ struct WebView: NSViewRepresentable {
             webView?.reload()
         }
 
+        /// Full navigation to home (post-logout clean slate).
+        func loadHomeIfNeeded(trigger: UUID) {
+            if lastHomeTrigger == nil {
+                lastHomeTrigger = trigger
+                return
+            }
+            guard lastHomeTrigger != trigger else { return }
+            lastHomeTrigger = trigger
+            webView?.load(URLRequest(url: homeURL))
+        }
+
+        private func reportNavigation(from webView: WKWebView, url: URL? = nil) {
+            let resolved = url ?? webView.url
+            Task { @MainActor in
+                AuthManager.shared.updateFromNavigation(url: resolved)
+            }
+        }
+
         // MARK: - Host policy
 
         /// Pages that should stay inside the menu panel (app host, BU SSO, common auth).
         private func shouldHandleInternally(_ url: URL) -> Bool {
             guard let scheme = url.scheme?.lowercased() else { return true }
 
-            // about:/blob: stay in-panel (some SPAs use them).
             if scheme == "about" || scheme == "blob" || scheme == "data" {
                 return true
             }
@@ -73,7 +94,6 @@ struct WebView: NSViewRepresentable {
                 }
             }
 
-            // Keep campus + common SSO hosts so login redirects still work in-panel.
             if host == "bu.edu" || host.hasSuffix(".bu.edu") {
                 return true
             }
@@ -121,7 +141,6 @@ struct WebView: NSViewRepresentable {
                     return
                 }
 
-                // target="_blank" (no target frame): load in this panel when allowed
                 if navigationAction.targetFrame == nil {
                     webView.load(URLRequest(url: url))
                     decisionHandler(.cancel)
@@ -129,7 +148,13 @@ struct WebView: NSViewRepresentable {
                 }
             }
 
-            // Redirects / form posts (including SSO) stay in-panel
+            // Main-frame navigations update session early (covers redirects).
+            if navigationAction.targetFrame?.isMainFrame ?? true {
+                Task { @MainActor in
+                    AuthManager.shared.updateFromNavigation(url: url)
+                }
+            }
+
             decisionHandler(.allow)
         }
 
@@ -138,7 +163,12 @@ struct WebView: NSViewRepresentable {
             decidePolicyFor navigationResponse: WKNavigationResponse,
             decisionHandler: @escaping (WKNavigationResponsePolicy) -> Void
         ) {
-            // Downloads / unrenderable MIME types → hand off to the browser
+            if navigationResponse.isForMainFrame, let url = navigationResponse.response.url {
+                Task { @MainActor in
+                    AuthManager.shared.updateFromNavigation(url: url)
+                }
+            }
+
             if navigationResponse.canShowMIMEType {
                 decisionHandler(.allow)
             } else if let url = navigationResponse.response.url {
@@ -146,6 +176,44 @@ struct WebView: NSViewRepresentable {
                 decisionHandler(.cancel)
             } else {
                 decisionHandler(.cancel)
+            }
+        }
+
+        func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
+            Task { @MainActor in
+                AuthManager.shared.noteNavigationStarted(url: webView.url)
+            }
+        }
+
+        func webView(_ webView: WKWebView, didReceiveServerRedirectForProvisionalNavigation navigation: WKNavigation!) {
+            reportNavigation(from: webView)
+        }
+
+        func webView(_ webView: WKWebView, didCommit navigation: WKNavigation!) {
+            reportNavigation(from: webView)
+        }
+
+        func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+            reportNavigation(from: webView)
+        }
+
+        func webView(
+            _ webView: WKWebView,
+            didFail navigation: WKNavigation!,
+            withError error: Error
+        ) {
+            Task { @MainActor in
+                AuthManager.shared.noteNavigationFailed()
+            }
+        }
+
+        func webView(
+            _ webView: WKWebView,
+            didFailProvisionalNavigation navigation: WKNavigation!,
+            withError error: Error
+        ) {
+            Task { @MainActor in
+                AuthManager.shared.noteNavigationFailed()
             }
         }
 
@@ -164,7 +232,6 @@ struct WebView: NSViewRepresentable {
             } else {
                 openExternally(url)
             }
-            // No second window; we handled the navigation ourselves.
             return nil
         }
     }
