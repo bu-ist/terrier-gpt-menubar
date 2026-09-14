@@ -2,12 +2,12 @@ import SwiftUI
 import AppKit
 
 struct ContentView: View {
-    @StateObject private var auth = AuthManager.shared
+    @ObservedObject private var auth = AuthManager.shared
 
-    @State private var reloadTrigger = UUID()
     @State private var launchAtLogin = LaunchAtLogin.isEnabled
     @State private var launchAtLoginMessage: String?
     @State private var statusMessage: String?
+    @State private var statusMessageToken = UUID()
 
     var body: some View {
         VStack(spacing: 0) {
@@ -15,7 +15,6 @@ struct ContentView: View {
                 Text("TerrierGPT")
                     .font(.headline)
 
-                // Session indicator from WebView navigation
                 Circle()
                     .fill(sessionDotColor)
                     .frame(width: 8, height: 8)
@@ -30,10 +29,11 @@ struct ContentView: View {
                     Image(systemName: "doc.on.clipboard")
                 }
                 .buttonStyle(.bordered)
-                .help("Usar desde Portapapeles")
+                .help("Prepare clipboard prompt")
+                .keyboardShortcut("v", modifiers: [.command, .shift])
 
                 Button {
-                    reloadTrigger = UUID()
+                    auth.requestReload()
                 } label: {
                     Image(systemName: "arrow.clockwise")
                 }
@@ -43,10 +43,7 @@ struct ContentView: View {
 
                 if auth.isAuthenticated {
                     Button {
-                        Task {
-                            await auth.logout()
-                            // loadHomeToken is bumped inside logout; web view loads home.
-                        }
+                        Task { await auth.logout() }
                     } label: {
                         Image(systemName: "rectangle.portrait.and.arrow.right")
                     }
@@ -102,7 +99,7 @@ struct ContentView: View {
 
             WebView(
                 url: auth.terrierURL,
-                reloadTrigger: reloadTrigger,
+                reloadTrigger: auth.reloadToken,
                 loadHomeTrigger: auth.loadHomeToken
             )
         }
@@ -116,9 +113,7 @@ struct ContentView: View {
 
     private var sessionDotColor: Color {
         switch auth.phase {
-        case .loading:
-            return .gray
-        case .signedOut:
+        case .loading, .signedOut:
             return .gray
         case .authenticating:
             return .orange
@@ -130,11 +125,11 @@ struct ContentView: View {
     private var sessionHelpText: String {
         switch auth.phase {
         case .loading:
-            return "Loading TerrierGPT…"
+            return "Loading TerrierGPT..."
         case .signedOut:
-            return "Signed out — sign in inside the window if prompted"
+            return "Signed out - sign in inside the window if prompted"
         case .authenticating:
-            return "Signing in (BU / Microsoft SSO)…"
+            return "Signing in (BU / Microsoft SSO)..."
         case .signedIn:
             return "Signed in"
         }
@@ -143,31 +138,23 @@ struct ContentView: View {
     // MARK: - Clipboard
 
     private func useClipboard() {
-        guard let text = NSPasteboard.general.string(forType: .string)?
-            .trimmingCharacters(in: .whitespacesAndNewlines),
-              !text.isEmpty else {
-            statusMessage = "El portapapeles está vacío"
-            clearStatusMessageAfterDelay()
-            return
+        switch ClipboardPrompt.prepareFromPasteboard() {
+        case .success:
+            showStatus("✅ Prompt ready on the clipboard - paste into chat (⌘V)")
+        case .failure:
+            showStatus("Clipboard is empty")
         }
-
-        let prompt = """
-        Analiza el siguiente contenido y ayúdame con él:
-
-        \(text)
-        """
-
-        NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(prompt, forType: .string)
-
-        statusMessage = "✅ Prompt listo en el portapapeles — pégalo en el chat (⌘V)"
-        clearStatusMessageAfterDelay()
     }
 
-    private func clearStatusMessageAfterDelay() {
+    private func showStatus(_ message: String) {
+        let token = UUID()
+        statusMessageToken = token
+        statusMessage = message
         Task {
             try? await Task.sleep(nanoseconds: 4_000_000_000)
-            statusMessage = nil
+            if statusMessageToken == token {
+                statusMessage = nil
+            }
         }
     }
 

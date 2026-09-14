@@ -74,7 +74,6 @@ struct WebView: NSViewRepresentable {
 
         // MARK: - Host policy
 
-        /// Pages that should stay inside the menu panel (app host, BU SSO, common auth).
         private func shouldHandleInternally(_ url: URL) -> Bool {
             guard let scheme = url.scheme?.lowercased() else { return true }
 
@@ -124,7 +123,6 @@ struct WebView: NSViewRepresentable {
                 return
             }
 
-            // mailto:, tel:, custom schemes → system handler
             if let scheme = url.scheme?.lowercased(),
                scheme != "http", scheme != "https",
                scheme != "about", scheme != "blob", scheme != "data" {
@@ -133,7 +131,6 @@ struct WebView: NSViewRepresentable {
                 return
             }
 
-            // User-clicked link to an external site → default browser
             if navigationAction.navigationType == .linkActivated {
                 if !shouldHandleInternally(url) {
                     openExternally(url)
@@ -148,8 +145,9 @@ struct WebView: NSViewRepresentable {
                 }
             }
 
-            // Main-frame navigations update session early (covers redirects).
-            if navigationAction.targetFrame?.isMainFrame ?? true {
+            // Only main-frame navigations update session (not iframes).
+            // `targetFrame == nil` means a new window request; session updates when it loads in-panel.
+            if let target = navigationAction.targetFrame, target.isMainFrame {
                 Task { @MainActor in
                     AuthManager.shared.updateFromNavigation(url: url)
                 }
@@ -203,7 +201,7 @@ struct WebView: NSViewRepresentable {
             withError error: Error
         ) {
             Task { @MainActor in
-                AuthManager.shared.noteNavigationFailed()
+                AuthManager.shared.noteNavigationFailed(error: error)
             }
         }
 
@@ -213,11 +211,11 @@ struct WebView: NSViewRepresentable {
             withError error: Error
         ) {
             Task { @MainActor in
-                AuthManager.shared.noteNavigationFailed()
+                AuthManager.shared.noteNavigationFailed(error: error)
             }
         }
 
-        // MARK: - WKUIDelegate (new windows / popups)
+        // MARK: - WKUIDelegate
 
         func webView(
             _ webView: WKWebView,
