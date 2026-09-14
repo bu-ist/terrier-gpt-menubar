@@ -5,18 +5,20 @@ A simple macOS menu-bar utility that gives quick access to [TerrierGPT](https://
 ## What it does
 
 - Lives in the menu bar (sparkles icon)
-- Click → opens a floating window with the full TerrierGPT interface (`terriergpt.bu.edu`)
-- **Reload** and **Quit** buttons, plus keyboard shortcuts (**⌘R** / **⌘Q**)
-- **Launch at Login** checkbox (via `SMAppService`)
+- Click opens a floating window with the full TerrierGPT interface (`terriergpt.bu.edu`)
+- Session status dot (gray / orange / green) from WebView navigation
+- **Reload**, **Quit**, clipboard prompt helper, and **Launch at Login**
+- Keyboard shortcuts: **⌘R** reload, **⌘Q** quit, **⇧⌘V** prepare clipboard prompt
 - External links open in your default browser; BU/SSO navigation stays in the panel
-- No Dock icon: it stays out of the way (`LSUIElement`)
+- No Dock icon: stays out of the way (`LSUIElement`)
+- **Apple Shortcuts** actions via App Intents (see below)
 
 ## How it was made
 
 - Native macOS app built in Xcode with **SwiftUI** + **WKWebView**
 - Pure menu bar app
 - Embeds the official TerrierGPT web UI so login, agents, and models work as usual
-- Built from scratch
+- Built from scratch as a learning project
 
 ## Requirements
 
@@ -43,9 +45,25 @@ The app appears in the menu bar (not the Dock). Click the sparkles icon to open 
 
 > **Note:** Launch at Login is most reliable when the app lives in Applications (or another stable install location), not only the Xcode build folder.
 
+## Apple Shortcuts
+
+After you build and run the app once, open the **Shortcuts** app and search for **TerrierGPT**:
+
+| Shortcut action | What it does |
+|-----------------|--------------|
+| Prepare Clipboard for TerrierGPT | Wraps clipboard text in a paste-ready prompt |
+| Show TerrierGPT Panel | Activates the app / tries to bring the panel forward |
+| Reload TerrierGPT | Reloads the embedded page |
+| Open TerrierGPT in Browser | Opens the site in Safari (or your default browser) |
+| Sign Out of TerrierGPT | Clears site data and returns home |
+
+**AppleScript:** not required for Shortcuts. Classic AppleScript (`.sdef`) would need Automation permission and more plumbing. Prefer App Intents unless you have a specific AppleScript-only workflow.
+
+You cannot fully automate typing into the TerrierGPT chat box without either an official API or fragile JavaScript injection. Clipboard prepare + paste (⌘V) is the reliable path today.
+
 ## Signing note
 
-This project does **not** ship with a personal Apple Development Team ID. Each person who clones the repo must select their own team under **Signing & Capabilities**. That is normal for shared Xcode apps.
+Each person who clones the repo should select their own team under **Signing & Capabilities**. That is normal for shared Xcode apps.
 
 There are no API keys or server secrets in this project: it only loads the public TerrierGPT website.
 
@@ -53,11 +71,14 @@ There are no API keys or server secrets in this project: it only loads the publi
 
 ```
 TerrierGPTMenu/
+├── Groups/
+│   ├── Auth/AuthManager.swift      # Session phases + shared actions
+│   ├── Views/WebView.swift         # WKWebView + navigation policy
+│   └── Intents/TerrierGPTIntents.swift  # Shortcuts / App Intents
 ├── MyApp/
-│   ├── TerrierGPTMenuApp.swift   # MenuBarExtra entry point
-│   ├── ContentView.swift         # Toolbar + launch-at-login UI
-│   ├── WebView.swift             # WKWebView + navigation policy
-│   ├── LaunchAtLogin.swift       # SMAppService wrapper
+│   ├── TerrierGPTMenuApp.swift
+│   ├── ContentView.swift
+│   ├── LaunchAtLogin.swift
 │   └── Assets.xcassets/
 ├── TerrierGPTMenu.xcodeproj/
 ├── TerrierGPTMenu-Info.plist

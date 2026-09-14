@@ -1,6 +1,7 @@
 import Foundation
 import WebKit
 import Combine
+import AppKit
 
 /// High-level session phase driven primarily by WebView navigation URLs.
 enum SessionPhase: Equatable {
@@ -27,6 +28,8 @@ final class AuthManager: ObservableObject {
 
     let terrierURL = URL(string: "https://terriergpt.bu.edu/")!
 
+    /// Bumped to reload the current page.
+    @Published private(set) var reloadToken = UUID()
     /// Bumped on logout so the web view loads home with a clean store (not a bare reload).
     @Published private(set) var loadHomeToken = UUID()
 
@@ -52,7 +55,7 @@ final class AuthManager: ObservableObject {
     func noteNavigationStarted(url: URL?) {
         if let url {
             let host = (url.host ?? "").lowercased()
-            if isIdentityHost(host) || isCampusSSOHost(host) {
+            if Self.isIdentityHost(host) || isCampusSSOHost(host) {
                 apply(phase: .authenticating)
                 return
             }
@@ -64,14 +67,23 @@ final class AuthManager: ObservableObject {
         }
     }
 
-    func noteNavigationFailed() {
+    func noteNavigationFailed(error: Error) {
+        let nsError = error as NSError
+        // Redirects and new loads cancel the previous navigation; that is not a real failure.
+        if nsError.domain == NSURLErrorDomain && nsError.code == NSURLErrorCancelled {
+            return
+        }
         if phase == .loading || phase == .authenticating {
             apply(phase: .signedOut)
         }
         isLoading = false
     }
 
-    // MARK: - Logout
+    // MARK: - Actions (UI + Shortcuts)
+
+    func requestReload() {
+        reloadToken = UUID()
+    }
 
     func logout() async {
         let store = WKWebsiteDataStore.default()
@@ -81,8 +93,22 @@ final class AuthManager: ObservableObject {
         )
 
         apply(phase: .signedOut)
-        // Force a fresh load of the home URL (cookies are gone).
         loadHomeToken = UUID()
+    }
+
+    func openInBrowser() {
+        NSWorkspace.shared.open(terrierURL)
+    }
+
+    /// Best-effort: activate the app and bring any menu-bar panel window forward.
+    func showPanel() {
+        NSApp.activate(ignoringOtherApps: true)
+        for window in NSApp.windows where window.canBecomeKey || window.frame.width >= 500 {
+            let name = String(describing: type(of: window))
+            if name.contains("MenuBar") || name.contains("StatusBar") || window.frame.height >= 600 {
+                window.makeKeyAndOrderFront(nil)
+            }
+        }
     }
 
     // MARK: - Classification
@@ -94,6 +120,9 @@ final class AuthManager: ObservableObject {
     }
 
     /// Map a main-frame URL to a session phase.
+    ///
+    /// Order matters: classify the TerrierGPT app host before generic SSO query markers
+    /// like `client_id=`, which can appear on the app itself and caused false "authenticating".
     static func classify(url: URL) -> SessionPhase {
         let host = (url.host ?? "").lowercased()
         let path = url.path.lowercased()
@@ -108,18 +137,17 @@ final class AuthManager: ObservableObject {
             return .authenticating
         }
 
-        // 2) Explicit SSO / SAML style paths on any host
-        if pathContainsSSOMarkers(path) || queryContainsSSOMarkers(query) || host.contains("shibboleth") {
-            return .authenticating
-        }
-
-        // 3) TerrierGPT app host
+        // 2) TerrierGPT app host (before generic SSO query heuristics)
         if isTerrierAppHost(host) {
             if pathLooksSignedOut(path) {
                 return .signedOut
             }
-            // Landed on the product UI (or SPA root). SSO redirects away if not logged in.
             return .signedIn
+        }
+
+        // 3) Explicit SSO / SAML style paths on other hosts
+        if pathContainsSSOMarkers(path) || queryContainsSSOMarkers(query) || host.contains("shibboleth") {
+            return .authenticating
         }
 
         // 4) Other BU hosts (campus portal steps between Entra and the app)
@@ -127,7 +155,6 @@ final class AuthManager: ObservableObject {
             return .authenticating
         }
 
-        // Unknown host (should be rare with our navigation policy)
         return .signedOut
     }
 
@@ -157,27 +184,62 @@ final class AuthManager: ObservableObject {
     }
 
     private static func queryContainsSSOMarkers(_ query: String) -> Bool {
-        query.contains("saml") || query.contains("sso") || query.contains("client_id=")
+        query.contains("saml") || query.contains("sso")
+        // Intentionally NOT matching bare `client_id=` (too common on SPAs).
     }
 
     private static func pathLooksSignedOut(_ path: String) -> Bool {
-        // Conservative: only treat clearly auth/logout routes as signed out.
-        let markers = [
-            "/login", "/log-in", "/signin", "/sign-in", "/sign_in",
-            "/logout", "/log-out", "/signout", "/sign-out", "/sign_out",
-            "/auth/logout", "/account/login",
+        let segments = path.split(separator: "/").map(String.init)
+        let markers: Set<String> = [
+            "login", "log-in", "signin", "sign-in", "sign_in",
+            "logout", "log-out", "signout", "sign-out", "sign_out",
         ]
-        return markers.contains { path == $0 || path.hasPrefix($0 + "/") || path.contains($0) }
-    }
-
-    // Free-function style helpers used from instance methods
-    private func isIdentityHost(_ host: String) -> Bool {
-        Self.isIdentityHost(host)
+        if segments.contains(where: { markers.contains($0) }) {
+            return true
+        }
+        // Nested routes like /auth/logout, /account/login
+        let joined = "/" + segments.joined(separator: "/")
+        let prefixes = ["/auth/logout", "/account/login", "/accounts/login"]
+        return prefixes.contains { joined == $0 || joined.hasPrefix($0 + "/") }
     }
 
     private func isCampusSSOHost(_ host: String) -> Bool {
-        // Exclude the app host itself (already handled as TerrierGPT).
         guard !Self.isTerrierAppHost(host) else { return false }
         return Self.isCampusSSOHost(host)
+    }
+}
+
+/// Shared clipboard prompt used by the UI and Shortcuts.
+enum ClipboardPrompt {
+    static func wrap(_ text: String) -> String {
+        """
+        Analiza el siguiente contenido y ayúdame con él:
+
+        \(text)
+        """
+    }
+
+    @MainActor
+    static func prepareFromPasteboard() -> Result<String, PrepareError> {
+        guard let text = NSPasteboard.general.string(forType: .string)?
+            .trimmingCharacters(in: .whitespacesAndNewlines),
+              !text.isEmpty else {
+            return .failure(.empty)
+        }
+        let prompt = wrap(text)
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(prompt, forType: .string)
+        return .success(prompt)
+    }
+
+    enum PrepareError: Error, LocalizedError {
+        case empty
+
+        var errorDescription: String? {
+            switch self {
+            case .empty:
+                return "Clipboard is empty"
+            }
+        }
     }
 }

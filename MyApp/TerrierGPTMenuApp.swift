@@ -2,7 +2,6 @@ import SwiftUI
 
 @main
 struct TerrierGPTMenuApp: App {
-    @StateObject private var auth = AuthManager.shared
     var body: some Scene {
         MenuBarExtra("TerrierGPT", systemImage: "sparkles") {
             ContentView()
