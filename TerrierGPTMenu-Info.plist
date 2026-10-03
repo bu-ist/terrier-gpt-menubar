@@ -1,5 +1,74 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
-<dict/>
+<dict>
+	<!-- terriergpt://handoff?contract=kb-gap-verdict — lets AppleScript (`open location`),
+	     `open`, Raycast, or a Shortcut's "Open URL" trigger a handoff without scripting this
+	     app. Handled in AppDelegate.application(_:open:). -->
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>com.brianmatute.TerrierGPTMenu.handoff</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>terriergpt</string>
+			</array>
+		</dict>
+	</array>
+	<!-- Services menu entries. Every app that can put selected text on a pasteboard gets
+	     these for free: no per-app scripting, no Automation permission.
+	     NSMessage must match the @objc method names on TerrierServicesProvider. -->
+	<key>NSServices</key>
+	<array>
+		<dict>
+			<key>NSMenuItem</key>
+			<dict>
+				<key>default</key>
+				<string>Ask TerrierGPT</string>
+			</dict>
+			<key>NSMessage</key>
+			<string>askTerrierGPT</string>
+			<key>NSPortName</key>
+			<string>TerrierGPTMenu</string>
+			<key>NSSendTypes</key>
+			<array>
+				<string>public.utf8-plain-text</string>
+				<string>public.plain-text</string>
+			</array>
+		</dict>
+		<dict>
+			<key>NSMenuItem</key>
+			<dict>
+				<key>default</key>
+				<string>Summarize with TerrierGPT</string>
+			</dict>
+			<key>NSMessage</key>
+			<string>summarizeWithTerrierGPT</string>
+			<key>NSPortName</key>
+			<string>TerrierGPTMenu</string>
+			<key>NSSendTypes</key>
+			<array>
+				<string>public.utf8-plain-text</string>
+				<string>public.plain-text</string>
+			</array>
+		</dict>
+		<dict>
+			<key>NSMenuItem</key>
+			<dict>
+				<key>default</key>
+				<string>Explain with TerrierGPT</string>
+			</dict>
+			<key>NSMessage</key>
+			<string>explainWithTerrierGPT</string>
+			<key>NSPortName</key>
+			<string>TerrierGPTMenu</string>
+			<key>NSSendTypes</key>
+			<array>
+				<string>public.utf8-plain-text</string>
+				<string>public.plain-text</string>
+			</array>
+		</dict>
+	</array>
+</dict>
 </plist>
