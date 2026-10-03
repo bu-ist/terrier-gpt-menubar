@@ -15,10 +15,44 @@ enum SessionPhase: Equatable {
     case signedIn
 }
 
+/// Which TerrierGPT host the panel loads. Campus prod vs AIDA nonprod (Ticket Search Desk, KB Desk).
+enum TerrierInstance: String, CaseIterable, Identifiable {
+    case production
+    case nonprod
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .production: return "Prod"
+        case .nonprod: return "Test"
+        }
+    }
+
+    var homeURL: URL {
+        switch self {
+        case .production:
+            return URL(string: "https://terriergpt.bu.edu/")!
+        case .nonprod:
+            return URL(string: "https://test.terriergpt-nonprod.bu.edu/")!
+        }
+    }
+
+    /// Short badge for chrome when not on production.
+    var badge: String? {
+        switch self {
+        case .production: return nil
+        case .nonprod: return "TEST"
+        }
+    }
+}
+
 @MainActor
 final class AuthManager: ObservableObject {
 
     static let shared = AuthManager()
+
+    private static let instanceDefaultsKey = "TerrierInstance"
 
     @Published private(set) var phase: SessionPhase = .loading
     @Published private(set) var isAuthenticated: Bool = false
@@ -26,14 +60,29 @@ final class AuthManager: ObservableObject {
     /// Last main-frame URL the web view reported (debug / future UI).
     @Published private(set) var lastNavigationURL: URL?
 
-    let terrierURL = URL(string: "https://terriergpt.bu.edu/")!
+    /// Prod campus vs nonprod test host. Persisted; switching reloads home.
+    @Published private(set) var instance: TerrierInstance
+
+    var terrierURL: URL { instance.homeURL }
 
     /// Bumped to reload the current page.
     @Published private(set) var reloadToken = UUID()
-    /// Bumped on logout so the web view loads home with a clean store (not a bare reload).
+    /// Bumped on logout / instance switch so the web view loads home (not a bare reload).
     @Published private(set) var loadHomeToken = UUID()
 
-    private init() {}
+    private init() {
+        let raw = UserDefaults.standard.string(forKey: Self.instanceDefaultsKey) ?? ""
+        self.instance = TerrierInstance(rawValue: raw) ?? .production
+    }
+
+    /// Switch Prod ↔ Test and navigate to that host's home.
+    func setInstance(_ newValue: TerrierInstance) {
+        guard newValue != instance else { return }
+        instance = newValue
+        UserDefaults.standard.set(newValue.rawValue, forKey: Self.instanceDefaultsKey)
+        apply(phase: .loading)
+        loadHomeToken = UUID()
+    }
 
     // MARK: - Navigation-driven session (source of truth)
 
@@ -51,19 +100,19 @@ final class AuthManager: ObservableObject {
         apply(phase: Self.classify(url: url))
     }
 
-    /// Provisional load started (optional spinner).
+    /// Provisional load started.
     func noteNavigationStarted(url: URL?) {
         if let url {
             let host = (url.host ?? "").lowercased()
-            if Self.isIdentityHost(host) || isCampusSSOHost(host) {
+            if Self.isIdentityHost(host) || isNonAppCampusHost(host) {
                 apply(phase: .authenticating)
                 return
             }
         }
-        // Keep signed-in green during soft reloads of the app itself.
+        // Keep the dot green during soft reloads of the app itself; only show the loading
+        // state when we don't already have a settled session.
         if phase != .signedIn {
             isLoading = true
-            if phase == .loading { return }
         }
     }
 
@@ -96,19 +145,28 @@ final class AuthManager: ObservableObject {
         loadHomeToken = UUID()
     }
 
+    /// Hands the current page to the default browser, falling back to the home URL.
+    ///
+    /// Opening the bare home URL threw away whichever conversation the user was reading,
+    /// which made "Open in Browser" close to useless mid-chat.
     func openInBrowser() {
-        NSWorkspace.shared.open(terrierURL)
+        let target: URL
+        if let current = lastNavigationURL, Self.classify(url: current) == .signedIn {
+            target = current
+        } else {
+            target = terrierURL
+        }
+        NSWorkspace.shared.open(target)
     }
 
-    /// Best-effort: activate the app and bring any menu-bar panel window forward.
-    func showPanel() {
+    /// Brings the panel forward.
+    ///
+    /// - Returns: `false` when the status item couldn't be reached, so the caller can tell the
+    ///   user to click the menu bar icon instead of claiming success.
+    @discardableResult
+    func showPanel() -> Bool {
         NSApp.activate(ignoringOtherApps: true)
-        for window in NSApp.windows where window.canBecomeKey || window.frame.width >= 500 {
-            let name = String(describing: type(of: window))
-            if name.contains("MenuBar") || name.contains("StatusBar") || window.frame.height >= 600 {
-                window.makeKeyAndOrderFront(nil)
-            }
-        }
+        return MenuBarPanel.show()
     }
 
     // MARK: - Classification
@@ -158,8 +216,18 @@ final class AuthManager: ObservableObject {
         return .signedOut
     }
 
-    private static func isTerrierAppHost(_ host: String) -> Bool {
-        host == "terriergpt.bu.edu" || host.hasSuffix(".terriergpt.bu.edu")
+    /// Both campus prod and AIDA nonprod. Nonprod is `test.terriergpt-nonprod.bu.edu`
+    /// (not a subdomain of `terriergpt.bu.edu`).
+    nonisolated static func isTerrierAppHost(_ host: String) -> Bool {
+        if host == "terriergpt.bu.edu" || host.hasSuffix(".terriergpt.bu.edu") {
+            return true
+        }
+        if host == "test.terriergpt-nonprod.bu.edu"
+            || host == "terriergpt-nonprod.bu.edu"
+            || host.hasSuffix(".terriergpt-nonprod.bu.edu") {
+            return true
+        }
+        return false
     }
 
     private static func isIdentityHost(_ host: String) -> Bool {
@@ -203,33 +271,65 @@ final class AuthManager: ObservableObject {
         return prefixes.contains { joined == $0 || joined.hasPrefix($0 + "/") }
     }
 
-    private func isCampusSSOHost(_ host: String) -> Bool {
+    /// A BU host that is *not* the TerrierGPT app itself — i.e. a campus login hop.
+    ///
+    /// Named apart from the static `isCampusSSOHost` it wraps; the previous name shadowed the
+    /// static one, so which of the two ran at a given call site depended on context.
+    private func isNonAppCampusHost(_ host: String) -> Bool {
         guard !Self.isTerrierAppHost(host) else { return false }
         return Self.isCampusSSOHost(host)
     }
 }
 
-/// Shared clipboard prompt used by the UI and Shortcuts.
+/// Shared clipboard prompt used by the UI, the Services menu, and Shortcuts.
 enum ClipboardPrompt {
-    static func wrap(_ text: String) -> String {
-        """
-        Analiza el siguiente contenido y ayúdame con él:
 
-        \(text)
-        """
+    /// Wraps arbitrary text in the app's standard instruction.
+    ///
+    /// This used to hard-code a Spanish instruction ("Analiza el siguiente contenido..."),
+    /// which made an otherwise English app answer in Spanish. It now shares one composer with
+    /// the capture pipeline so every entry point produces the same prompt shape.
+    static func wrap(_ text: String, instruction: String = PromptComposer.defaultInstruction) -> String {
+        PromptComposer.compose(
+            instruction: instruction,
+            contexts: [CapturedContext(source: .clipboard, title: "Clipboard", body: text)]
+        )
     }
 
+    /// Reads the pasteboard, wraps it, and writes the result back.
     @MainActor
-    static func prepareFromPasteboard() -> Result<String, PrepareError> {
+    static func prepareFromPasteboard(instruction: String = PromptComposer.defaultInstruction) -> Result<String, PrepareError> {
         guard let text = NSPasteboard.general.string(forType: .string)?
             .trimmingCharacters(in: .whitespacesAndNewlines),
               !text.isEmpty else {
             return .failure(.empty)
         }
-        let prompt = wrap(text)
+        let prompt = wrap(text, instruction: instruction)
+        write(prompt)
+        return .success(prompt)
+    }
+
+    /// Reads the pasteboard as a capture, without modifying it.
+    @MainActor
+    static func captureFromPasteboard() -> CapturedContext? {
+        guard let text = NSPasteboard.general.string(forType: .string)?
+            .trimmingCharacters(in: .whitespacesAndNewlines),
+              !text.isEmpty else { return nil }
+
+        let firstLine = text.split(separator: "\n", maxSplits: 1).first.map(String.init) ?? text
+        return CapturedContext(
+            source: .clipboard,
+            title: firstLine.count > 48 ? String(firstLine.prefix(48)) + "…" : firstLine,
+            detail: "\(text.count) characters",
+            body: text
+        )
+    }
+
+    /// Replaces the pasteboard contents with `prompt`.
+    @MainActor
+    static func write(_ prompt: String) {
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(prompt, forType: .string)
-        return .success(prompt)
     }
 
     enum PrepareError: Error, LocalizedError {
