@@ -100,6 +100,12 @@ enum HandoffService {
         // A selected block is already the answer; repeating it as "structured data" is noise.
         let structured = match.flatMap { match -> (String?, String)? in
             guard match.origin != .selection, let json = try? HandoffStore.encode(match.payload) else { return nil }
+            // A block from an earlier message would sit next to the newest answer's prose as if
+            // it were its data. When the newest message is known, the block must be in it.
+            if match.origin == .codeBlock, let last = sources.lastMessage,
+               let contract = match.contract, !last.contains(contract) {
+                return nil
+            }
             return (match.contract, json)
         }
 

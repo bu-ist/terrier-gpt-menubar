@@ -291,7 +291,7 @@ struct AutomationMenu: View {
         Menu {
             let recipes = RecipeStore.load()
             Section("Run a chain") {
-                ForEach(recipes.recipes) { recipe in
+                ForEach(recipes.recipes.filter(\.isRunnable)) { recipe in
                     Button {
                         runner.start(recipe, origin: .panel)
                     } label: {
@@ -303,11 +303,11 @@ struct AutomationMenu: View {
                     Button("\(file): \(recipes.errors[file] ?? "")") {}
                         .disabled(true)
                 }
-                Button("Open recipes folder") {
-                    NSWorkspace.shared.open(RecipeStore.directory)
-                }
             }
             .disabled(runner.isRunning)
+            Button("Open recipes folder") {
+                NSWorkspace.shared.open(RecipeStore.directory)
+            }
 
             Button("Run history…") { showHistory = true }
 

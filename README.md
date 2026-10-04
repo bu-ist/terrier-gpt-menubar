@@ -84,6 +84,7 @@ Events under the hardened runtime.
 | ⇧⌘V | Capture the clipboard |
 | ⇧⌘C | Copy the composed prompt |
 | ⇧⌘J | Hand off the answer to Claude, Gemini, or Grok (then ↩ for the last one used) |
+| ⇧⌘R | Recipes |
 | ⌘L | Focus the chat |
 | ⌘Q | Quit |
 
@@ -104,6 +105,68 @@ Events under the hardened runtime.
 The picker has a *What should it do?* field (empty means "pick up where TerrierGPT left off")
 with one-click suggestions: Fact-check, Go deeper, Draft a reply, Summarize. The last
 assistant you chose is remembered and answers to ↩.
+
+## Recipes: working-group skills, already chained
+
+**Recipes** (the stacked-squares button in the header, ⇧⌘R) is a gallery of the CTS AI
+Working Group's documented skill chains (`docs/orchestration`, `skills/cts-orchestrate`),
+grouped by shelf: Daily, Weekly, Tickets, Knowledge, Career, Hosts, Answer.
+
+Each card shows:
+
+- **The chain**: the skills in order, e.g. `ticket-digest → ticket-hygiene → who → cts-daily-brief`.
+- **The advice**: where it runs best and with what — *your Mac · Claude Sonnet 5.5 · medium
+  effort*, *TerrierGPT · KB Desk (Test)*, *Claude · Opus 5.5 · high* — and where the result
+  goes next. Hover for the why; expand the card for the guardrail ("Stops before Submit").
+- **One primary button** that fits the advice:
+  - **Run**: steps on this Mac, through the chain runner.
+  - **Ask**: copies the TerrierGPT prompt (with your captures), switches to Test when the
+    recipe needs a desk, and focuses the chat.
+  - **Open**: hands the recipe to Claude, Gemini, or Grok.
+- **Start it**, in the expanded card: run the chain on TerrierGPT's answer, an in-app schedule
+  switch, the matching Shortcut (*CTS Morning Desk*, …) with a Run button when it's in your
+  library, the `terriergpt://run?recipe=…` line for scripts and AppleScript, and whether a
+  cloud scheduler (Claude scheduled tasks, Grok Tasks) can take it.
+
+When a recipe finishes and its advice names a next assistant, the run strip offers
+**Continue in Claude** (or Grok or Gemini). It hands off the recipe, its task, and the
+run's result.
+
+### The catalog
+
+| Recipe | Chain | Best in | Suggested schedule |
+|---|---|---|---|
+| Morning desk | ticket-digest → ticket-hygiene → who → cts-daily-brief | Mac | Weekdays 08:00 |
+| End of day | end-of-day-wrap-up | Mac | Weekdays 16:30 |
+| Tuesday RedAlert | red-alert-weekly → fleet-chase → ticket-hygiene → career-snapshot | Mac | Tue 09:00 |
+| Patterns → KB gaps | ticket-pattern-analyzer → kb-gap-check → draft-kb | Mac | Mon 09:15 |
+| Resolved ticket → KB | log-triage → kb-gap-check → draft-kb | Mac | — |
+| KB Desk → draft → review | kb-retrieve → kb-gap-check → draft-kb → review | TerrierGPT Test, then Claude | — |
+| Ticket search → HTML | ticket-search-retrieve → ticket-search-report → servicenow-search-report | TerrierGPT Test | — |
+| Triage → reply or escalate | triage → escalate | TerrierGPT | — |
+| HIPAA ISAR review | isar-device-review → servicenow-file | Mac (Opus, high) | never on a timer |
+| Post-incident recap | post-incident-recap → kb-article-drafter | TerrierGPT | — |
+| Career snapshot → self-review | career-snapshot → annual-review-prep | Mac, then Claude | — |
+| Ubuntu lab host build | ubuntu-ad-join → crowdstrike → rapid7 | Claude Code on the host | — |
+
+Mac recipes call the BU-CTS-RKC overlay's `scripts/run-*.sh`, which load `config.env` and
+then the WG starter. Personal values therefore stay out of the app and out of the WG repo.
+
+The catalog lives in `Groups/Chains/RecipeCatalog.swift` and is seeded as JSON files into the
+recipes folder. Edit them freely: a seeded file is only replaced when it still matches what
+shipped. New recipe fields, all optional: `category`, `icon`, `skills`, `advice` (`place`,
+`agent`, `model`, `effort`, `why`, `then`), `prompt`, `instance`, `schedule` (`weekdays`
+ISO Mon=1, `time` "HH:mm"), `shortcut`, `stops_before`. A recipe with a `prompt` and no
+`steps` is a guided TerrierGPT prompt or handoff.
+
+### Schedules run in the app, not launchd
+
+A launchd job runs as bare `/bin/bash`, which macOS doesn't let into `~/Documents`, where the
+WG clone and the overlay live. Those jobs die with "Operation not permitted". The app gets
+that access once, so its scheduler (`RecipeScheduler`) runs the recipes you switch on.
+Nothing is scheduled by default; the switch is the consent. If the Mac was asleep at the
+scheduled time, the recipe runs within the next two hours or not at all. Steps with
+`confirm` still ask.
 
 ## Handoffs to scripts and agents (phase 1)
 

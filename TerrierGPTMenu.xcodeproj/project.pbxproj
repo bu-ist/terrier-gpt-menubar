@@ -6,6 +6,10 @@
 	objectVersion = 90;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		DD0000000000000000000001 /* DropDocKit in Frameworks */ = {isa = PBXBuildFile; productRef = DD0000000000000000000002 /* DropDocKit */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXFileReference section */
 		000000000000000000000120 /* TerrierGPTMenu.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = TerrierGPTMenu.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		6F714E113023B93700F8CEE9 /* TerrierGPTMenu-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = "TerrierGPTMenu-Info.plist"; sourceTree = "<group>"; };
@@ -28,6 +32,7 @@
 		000000000000000130000000 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			files = (
+				DD0000000000000000000001 /* DropDocKit in Frameworks */,
 			);
 		};
 /* End PBXFrameworksBuildPhase section */
@@ -69,6 +74,9 @@
 				6FDBE8D030260967005D5CB2 /* Groups */,
 			);
 			name = TerrierGPTMenu;
+			packageProductDependencies = (
+				DD0000000000000000000002 /* DropDocKit */,
+			);
 			productName = MyApp;
 			productReference = 000000000000000000000120 /* TerrierGPTMenu.app */;
 			productType = "com.apple.product-type.application";
@@ -97,6 +105,9 @@
 			);
 			mainGroup = 000000000000000000000001;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				DD0000000000000000000003 /* XCLocalSwiftPackageReference "../DropDoc/Packages/DropDocKit" */,
+			);
 			preferredProjectObjectVersion = 90;
 			productRefGroup = 000000000000000000000020 /* Products */;
 			projectDirPath = "";
@@ -370,6 +381,21 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		DD0000000000000000000003 /* XCLocalSwiftPackageReference "../DropDoc/Packages/DropDocKit" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = ../DropDoc/Packages/DropDocKit;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		DD0000000000000000000002 /* DropDocKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = DD0000000000000000000003 /* XCLocalSwiftPackageReference "../DropDoc/Packages/DropDocKit" */;
+			productName = DropDocKit;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 000000000000000000000000 /* Project object */;
 }

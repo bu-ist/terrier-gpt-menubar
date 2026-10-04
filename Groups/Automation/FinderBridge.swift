@@ -1,6 +1,7 @@
 import Foundation
 import AppKit
 import UniformTypeIdentifiers
+import DropDocKit
 
 /// Reads the Finder's selection, and optionally the text inside the selected files.
 nonisolated enum FinderBridge {
@@ -17,6 +18,9 @@ nonisolated enum FinderBridge {
         .plainText, .utf8PlainText, .rtf, .sourceCode, .script, .json, .xml, .yaml,
         .commaSeparatedText, .tabSeparatedText, .propertyList, .html, .delimitedText,
     ]
+
+    /// Largest document (PDF, Word, Excel, PowerPoint, image…) handed to DropDocKit for conversion.
+    static let maxConvertBytes = 25 * 1_024 * 1_024
 
     static func captureSelection(includeFileContents: Bool = true) async throws -> CapturedContext {
         guard !NSRunningApplication.runningApplications(withBundleIdentifier: bundleID).isEmpty else {
@@ -38,7 +42,7 @@ nonisolated enum FinderBridge {
         guard !paths.isEmpty else { throw AutomationError.noResult(app: appName) }
 
         let urls = paths.map { URL(fileURLWithPath: $0) }
-        return context(for: urls, includeFileContents: includeFileContents)
+        return await context(for: urls, includeFileContents: includeFileContents)
     }
 
     /// Selected items, falling back to the front window's folder when nothing is selected.
@@ -65,7 +69,7 @@ nonisolated enum FinderBridge {
 
     // MARK: - Body building
 
-    static func context(for urls: [URL], includeFileContents: Bool) -> CapturedContext {
+    static func context(for urls: [URL], includeFileContents: Bool) async -> CapturedContext {
         var lines: [String] = []
         var inlined = 0
         var skipped = 0
@@ -80,7 +84,16 @@ nonisolated enum FinderBridge {
             guard includeFileContents, !isDirectory else { continue }
 
             guard let type = values?.contentType, readableTypes.contains(where: { type.conforms(to: $0) }) else {
-                skipped += 1
+                // Documents that aren't plain text (PDF, Word, Excel, PowerPoint, images…) go
+                // through DropDocKit and come back as Markdown. Audio/video is left out: transcribing
+                // a recording is too slow for a capture chip.
+                if let markdown = await convertedMarkdown(url, size: size) {
+                    lines.append("")
+                    lines.append(markdown)
+                    inlined += 1
+                } else {
+                    skipped += 1
+                }
                 continue
             }
 
@@ -123,5 +136,15 @@ nonisolated enum FinderBridge {
             body: lines.joined(separator: "\n"),
             partial: partial
         )
+    }
+
+    /// Markdown for a non-text document, or `nil` when DropDocKit can't (or shouldn't) read it.
+    private static func convertedMarkdown(_ url: URL, size: Int) async -> String? {
+        guard size <= maxConvertBytes,
+              let family = FormatFamily.family(forExtension: url.pathExtension),
+              family != .media,
+              let result = try? await DocumentConverter.shared.convert(url: url),
+              result.markdown.utf8.count <= maxInlineBytes else { return nil }
+        return result.markdown
     }
 }

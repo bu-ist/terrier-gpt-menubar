@@ -16,6 +16,7 @@ struct PanelHeader: View {
 
     @Namespace private var glass
     @State private var showHistory = false
+    @State private var showRecipes = false
 
     var body: some View {
         HStack(spacing: TG.Space.snug) {
@@ -28,6 +29,7 @@ struct PanelHeader: View {
             GlassEffectContainer(spacing: TG.Space.merge) {
                 HStack(spacing: TG.Space.controlGap) {
                     historyControls
+                    recipesButton
                     captureMenu
                     overflowMenu
                 }
@@ -102,6 +104,21 @@ struct PanelHeader: View {
         }
         .transition(.blurReplace)
         .tgAnimation(TG.Motion.morph, value: webModel.canGoBack || webModel.canGoForward)
+    }
+
+    private var recipesButton: some View {
+        Button {
+            showRecipes.toggle()
+        } label: {
+            Image(systemName: "square.stack.3d.up.fill")
+        }
+        .buttonStyle(.glassCircle(tint: TG.violet, id: "recipes", in: glass))
+        .keyboardShortcut("r", modifiers: [.command, .shift])
+        .help("Recipes — working-group skills, already chained (⇧⌘R)")
+        .accessibilityLabel("Recipes")
+        .popover(isPresented: $showRecipes, arrowEdge: .bottom) {
+            RecipesView(coordinator: coordinator, isPresented: $showRecipes)
+        }
     }
 
     private var captureMenu: some View {
