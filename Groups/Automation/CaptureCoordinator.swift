@@ -312,6 +312,54 @@ final class CaptureCoordinator: ObservableObject {
         }
     }
 
+    // MARK: - Recipes
+
+    /// The TerrierGPT phase of a recipe: switch instance if it needs the Test desks, put the
+    /// prompt (plus any captures) on the clipboard, and focus the chat.
+    func startInTerrierGPT(_ recipe: Recipe) {
+        let auth = AuthManager.shared
+        if recipe.instance == "nonprod", auth.instance != .nonprod {
+            auth.setInstance(.nonprod)
+        }
+        let instruction = recipe.prompt ?? recipe.displayTitle
+        // compose() trims the instruction, which would eat a template's trailing "- " — only
+        // go through it when there are captures to append.
+        let prompt = enabledContexts.isEmpty ? instruction : PromptComposer.compose(instruction: instruction, contexts: contexts)
+        ClipboardPrompt.write(prompt)
+        webModel?.focusContent()
+        let pick = [recipe.advice?.agent, recipe.advice?.model].compactMap { $0 }.joined(separator: " · ")
+        show(Toast(
+            kind: .success,
+            title: "Prompt copied — paste with ⌘V",
+            detail: pick.isEmpty ? recipe.displayTitle : "Pick \(pick)" + (recipe.isRunnable ? ", then run the chain on its answer." : ".")
+        ))
+    }
+
+    /// Hands a recipe to an assistant: what it is, the task, your captures, and — when this
+    /// recipe just ran — its result.
+    func handOff(_ recipe: Recipe, to target: AITarget) async {
+        AITarget.last = target
+        let runner = ChainRunner.shared
+        let result: String? = {
+            guard let run = runner.current, run.recipe.name == recipe.name, run.status == .succeeded else { return nil }
+            return run.outputText ?? run.outputPayloadJSON
+        }()
+        let brief = RecipeBrief(recipe: recipe, contexts: enabledContexts, result: result).markdown
+        do {
+            try FileManager.default.createDirectory(at: HandoffStore.directory, withIntermediateDirectories: true)
+            try Data(brief.utf8).write(to: HandoffStore.directory.appendingPathComponent("latest.md"), options: .atomic)
+        } catch {
+            log.error("Couldn't save the recipe brief: \(error.localizedDescription, privacy: .public)")
+        }
+        ClipboardPrompt.write(brief)
+        let prefilled = target.open(with: brief)
+        show(Toast(
+            kind: .success,
+            title: "Opening \(target.name)",
+            detail: prefilled ? "\(recipe.displayTitle) is filled in and on your clipboard." : "\(recipe.displayTitle) copied. Paste it with ⌘V."
+        ))
+    }
+
     private static func handoffToast(_ saved: HandoffStore.Saved, copied: Bool) -> Toast {
         let name = saved.url.lastPathComponent
         let verb = copied ? "saved and copied" : "saved"

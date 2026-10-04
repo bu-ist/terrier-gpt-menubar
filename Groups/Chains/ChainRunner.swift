@@ -79,7 +79,7 @@ final class ChainRunner: ObservableObject {
     /// Where the run was started from. A link is the only trigger that asks first: anything
     /// on a web page can open a `terriergpt://` URL. The inbox doesn't ask, because a file only
     /// gets there if something on this Mac put it there, and only recipes that opted in run.
-    nonisolated enum Origin: String { case panel, intent, url, inbox, history }
+    nonisolated enum Origin: String { case panel, intent, url, inbox, history, schedule }
 
     /// What a Shortcut hands in, overriding the recipe's own `input`.
     nonisolated enum InputOverride {
@@ -113,6 +113,14 @@ final class ChainRunner: ObservableObject {
                 kind: .info,
                 title: "A chain is already running",
                 detail: current.map { "\($0.recipe.displayTitle) — cancel it first" }
+            ))
+            return nil
+        }
+        guard recipe.isRunnable else {
+            CaptureCoordinator.shared.show(Toast(
+                kind: .info,
+                title: "\(recipe.displayTitle) has no steps to run",
+                detail: "It's a guided TerrierGPT prompt — start it from Recipes."
             ))
             return nil
         }

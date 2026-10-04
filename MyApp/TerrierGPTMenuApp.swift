@@ -35,6 +35,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         // Before any URL is handled, so a launch by the inbox agent finds the watcher ready.
         InboxWatcher.shared.start()
+
+        // Recipes the user switched on in the gallery. Nothing is scheduled by default.
+        Task { @MainActor in RecipeScheduler.shared.start() }
     }
 
     /// `terriergpt://handoff|run|inbox` — AppleScript, `open`, Raycast, and the inbox agent.

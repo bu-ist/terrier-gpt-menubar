@@ -66,6 +66,14 @@ struct RunStrip: View {
     private var actions: some View {
         if run.status.isFinished {
             HStack(spacing: TG.Space.tight) {
+                // The recipe's advice says where its result goes next.
+                if run.status == .succeeded, let target = run.recipe.advice?.then?.aiTarget {
+                    Button("Continue in \(target.name)") {
+                        Task { await CaptureCoordinator.shared.handOff(run.recipe, to: target) }
+                    }
+                    .buttonStyle(.glassPill(tint: target.tint, prominent: true))
+                    .help("Hand the result to \(target.name), with the recipe's next task")
+                }
                 if run.status == .succeeded, let text = run.outputPayloadJSON ?? run.outputText {
                     Button("Copy result") {
                         ClipboardPrompt.write(text)
@@ -95,10 +103,21 @@ struct RunStrip: View {
     private var detailLine: String? {
         switch run.status {
         case .failed(let message): return message
-        case .succeeded: return run.notes.first ?? ChainRunner.costLine(run)
+        case .succeeded:
+            if Self.wasBlocked(run), let target = run.recipe.advice?.then?.aiTarget {
+                return "Some data was blocked — headless runs can't approve access. Continue in \(target.name) to finish."
+            }
+            return run.notes.first ?? ChainRunner.costLine(run)
         case .preparing: return "Reading TerrierGPT…"
         case .running, .cancelled: return nil
         }
+    }
+
+    /// Claude says so in plain words when a headless run was denied a tool.
+    private static func wasBlocked(_ run: ChainRunner.Run) -> Bool {
+        let text = (run.outputText ?? "").lowercased()
+        return ["access was denied", "was denied", "haven't granted", "blocked by permissions", "couldn't read your calendar"]
+            .contains { text.contains($0) }
     }
 
     private var tint: Color? {

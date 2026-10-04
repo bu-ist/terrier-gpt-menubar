@@ -68,14 +68,21 @@ enum AITarget: String, CaseIterable, Identifiable {
         isInstalled ? "Desktop app" : (self == .gemini ? "gemini.google.com" : self == .claude ? "claude.ai" : "grok.com")
     }
 
-    /// Whether the brief can ride in the URL rather than only on the clipboard.
-    func canPrefill(_ brief: String) -> Bool {
-        self != .gemini && brief.count <= Self.prefillLimit
+    /// The brief as a `q=` value, when it can ride in the URL rather than only on the
+    /// clipboard.
+    ///
+    /// Measured *after* encoding: accented text and line breaks grow 3–9× when
+    /// percent-encoded, so a Spanish brief well under a character limit can still produce a
+    /// URL long enough for the app or browser to cut — and the cut end is the answer.
+    func prefillQuery(for brief: String) -> String? {
+        guard self != .gemini,
+              let query = brief.addingPercentEncoding(withAllowedCharacters: Self.queryAllowed),
+              query.utf8.count <= Self.prefillLimit
+        else { return nil }
+        return query
     }
 
-    /// Long URLs get truncated by browsers and apps in ways that drop the end of the brief —
-    /// which is the answer. Past this, paste instead.
-    private static let prefillLimit = 6_000
+    private static let prefillLimit = 16_000
 
     // MARK: - Opening
 
@@ -84,8 +91,7 @@ enum AITarget: String, CaseIterable, Identifiable {
     @MainActor
     @discardableResult
     func open(with brief: String) -> Bool {
-        let prefill = canPrefill(brief)
-        let query = prefill ? brief.addingPercentEncoding(withAllowedCharacters: Self.queryAllowed) : nil
+        let query = prefillQuery(for: brief)
 
         switch self {
         case .claude:
@@ -102,14 +108,14 @@ enum AITarget: String, CaseIterable, Identifiable {
                 NSWorkspace.shared.open(url)
             }
         case .grok:
-            let link = URL(string: "https://grok.com/" + (query.map { "?q=\($0)" } ?? ""))!
+            let link = URL(string: "https://grok.com/" + (query.map { "?q=\($0)" } ?? "")) ?? URL(string: "https://grok.com/")!
             if let app = appURL {
                 NSWorkspace.shared.open([link], withApplicationAt: app, configuration: NSWorkspace.OpenConfiguration(), completionHandler: nil)
             } else {
                 NSWorkspace.shared.open(link)
             }
         }
-        return prefill && query != nil
+        return query != nil
     }
 
     /// `urlQueryAllowed` leaves `&`, `=`, `+` and `#` alone, which would cut the brief short.
