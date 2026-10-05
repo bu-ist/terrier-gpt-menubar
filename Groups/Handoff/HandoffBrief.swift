@@ -91,38 +91,3 @@ nonisolated struct HandoffBrief {
 nonisolated private extension String {
     var trimmed: String { trimmingCharacters(in: .whitespacesAndNewlines) }
 }
-
-/// A recipe handed to an assistant: the chain it stands for, the task, the guardrail, your
-/// captures, and the result of its last run when there is one.
-nonisolated struct RecipeBrief {
-    var recipe: Recipe
-    var contexts: [CapturedContext]
-    var result: String?
-
-    var markdown: String {
-        var parts: [String] = []
-        var lead = "I'm running the **\(recipe.displayTitle)** recipe from the CTS AI Working Group"
-        if let skills = recipe.skills, !skills.isEmpty {
-            lead += " — skills in order: " + skills.map { "`\($0)`" }.joined(separator: " → ")
-        }
-        parts.append(lead + ".")
-        if let description = recipe.description { parts.append(description) }
-        if let prompt = recipe.prompt?.trimmed, !prompt.isEmpty {
-            parts.append("**What I need from you:** \(prompt)")
-        } else if result != nil {
-            parts.append("**What I need from you:** Review the result below, flag anything wrong, and help me with the next step.")
-        }
-        if let stop = recipe.stopsBefore {
-            parts.append("**Guardrail:** stop before \(stop). Drafts only; I'll do that part myself.")
-        }
-        if let result = result?.trimmed, !result.isEmpty {
-            parts.append("## Result of the last run\n\n\(result.count > 30_000 ? String(result.prefix(30_000)) + "\n…(trimmed)" : result)")
-        }
-        let usable = contexts.filter { !$0.body.trimmed.isEmpty }
-        if !usable.isEmpty {
-            parts.append("## Context\n\n" + usable.map(\.promptBlock).joined(separator: "\n\n"))
-        }
-        parts.append("---\nHanded off from TerrierGPT Menu · " + Date().formatted(date: .abbreviated, time: .shortened))
-        return parts.joined(separator: "\n\n")
-    }
-}

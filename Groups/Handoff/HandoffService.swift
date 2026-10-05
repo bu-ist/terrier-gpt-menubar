@@ -148,58 +148,80 @@ enum HandoffService {
         return saved
     }
 
-    /// Handles `terriergpt://handoff?contract=kb-gap-verdict&copy=1`.
+    /// Handles `terriergpt://` links.
     ///
-    /// The URL route can't return a value, so the result goes where every trigger's does —
-    /// `latest.json` — and the panel toast says what happened. A caller that needs the output
-    /// reads the file.
+    /// - `handoff?contract=kb-gap-verdict&copy=1&strict=1` — save the answer's block.
+    /// - `handoff?text=1` — save the answer as plain text.
+    /// - `ask?prompt=…&instance=nonprod` — put a prompt in the chat (CTS Recipes uses this).
+    /// - `run?recipe=…` and `inbox` — recipes moved to CTS Recipes; these forward there, so old
+    ///   Shortcuts and scripts keep working.
     ///
-    /// Also `terriergpt://run?recipe=kb-desk-handoff[&input=/path/to/handoff.json]`, which
-    /// always asks before running (see `ChainRunner.confirmLink`).
+    /// A link can't return a value, so results go where every trigger's do — `latest.json` —
+    /// and the panel toast says what happened.
     static func handle(_ url: URL) {
-        let query = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems ?? []
+        let components = URLComponents(url: url, resolvingAgainstBaseURL: false)
+        let query = components?.queryItems ?? []
         guard url.scheme?.lowercased() == "terriergpt" else { return }
-
-        // From the launchd agent (or anything else): look at the inbox now. Only files
-        // already there, only recipes that opted in — nothing for a link to choose.
-        if url.host?.lowercased() == "inbox" {
-            InboxWatcher.shared.scan()
-            return
+        let value = { (name: String) in query.first { $0.name == name }?.value }
+        let flag = { (name: String) in
+            value(name).map { ["1", "true", "yes"].contains($0.lowercased()) } ?? false
         }
 
-        if url.host?.lowercased() == "run" {
-            let name = query.first { $0.name == "recipe" }?.value ?? ""
-            guard let recipe = RecipeStore.recipe(named: name) else {
+        switch url.host?.lowercased() {
+        case "run", "inbox":
+            var forward = components ?? URLComponents()
+            forward.scheme = "ctsrecipes"
+            guard CTSRecipesApp.isInstalled, let target = forward.url else {
                 CaptureCoordinator.shared.show(Toast(
-                    kind: .failure,
-                    title: ChainError.unknownRecipe(name).errorDescription ?? "Unknown recipe",
-                    detail: ChainError.unknownRecipe(name).recoverySuggestion
+                    kind: .info,
+                    title: "Recipes live in CTS Recipes now",
+                    detail: "Install CTS Recipes to run \(value("recipe").map { "\"\($0)\"" } ?? "recipes")."
                 ))
                 return
             }
-            let input = query.first { $0.name == "input" }?.value
-                .map { URL(fileURLWithPath: ($0 as NSString).expandingTildeInPath) }
-                .map(ChainRunner.InputOverride.file)
-            ChainRunner.shared.start(recipe, input: input, origin: .url)
-            return
-        }
+            CTSRecipesApp.open(target)
 
-        guard url.host?.lowercased() == "handoff" else {
+        case "ask":
+            guard let prompt = value("prompt"), !prompt.isEmpty else { return }
+            CaptureCoordinator.shared.ask(prompt: prompt, instance: value("instance"))
+
+        case "handoff":
+            Task {
+                if flag("text") {
+                    await CaptureCoordinator.shared.exportAnswerText()
+                } else {
+                    await CaptureCoordinator.shared.exportHandoff(
+                        contract: value("contract"),
+                        copyToClipboard: flag("copy"),
+                        mode: flag("strict") ? .jsonOnly : .smart
+                    )
+                }
+            }
+
+        default:
             CaptureCoordinator.shared.show(Toast(kind: .failure, title: "Unknown link", detail: url.absoluteString))
-            return
         }
-        let contract = query.first { $0.name == "contract" }?.value
-        let flag = { (name: String) in
-            query.first { $0.name == name }?.value.map { ["1", "true", "yes"].contains($0.lowercased()) } ?? false
-        }
+    }
+}
 
-        Task {
-            await CaptureCoordinator.shared.exportHandoff(
-                contract: contract,
-                copyToClipboard: flag("copy"),
-                mode: flag("strict") ? .jsonOnly : .smart
-            )
-        }
+/// The companion app that runs recipes.
+@MainActor
+enum CTSRecipesApp {
+    static let bundleID = "com.brianmatute.CTSRecipes"
+
+    static var url: URL? { NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID) }
+    static var isInstalled: Bool { url != nil }
+
+    /// Without bringing it forward: it works in the background.
+    static func open(_ link: URL) {
+        let configuration = NSWorkspace.OpenConfiguration()
+        configuration.activates = false
+        NSWorkspace.shared.open(link, configuration: configuration, completionHandler: nil)
+    }
+
+    static func show() {
+        guard let url else { return }
+        NSWorkspace.shared.openApplication(at: url, configuration: NSWorkspace.OpenConfiguration(), completionHandler: nil)
     }
 }
 
