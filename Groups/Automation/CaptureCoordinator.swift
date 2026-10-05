@@ -312,52 +312,30 @@ final class CaptureCoordinator: ObservableObject {
         }
     }
 
-    // MARK: - Recipes
+    // MARK: - Asked from outside
 
-    /// The TerrierGPT phase of a recipe: switch instance if it needs the Test desks, put the
-    /// prompt (plus any captures) on the clipboard, and focus the chat.
-    func startInTerrierGPT(_ recipe: Recipe) {
+    /// `terriergpt://ask` — another app (CTS Recipes, a Shortcut) wants a prompt in the chat:
+    /// switch instance if asked, put the prompt (plus any captures) on the clipboard, show the
+    /// panel, and focus the composer. Pasting stays with the person, as everywhere else.
+    func ask(prompt: String, instance: String?) {
         let auth = AuthManager.shared
-        if recipe.instance == "nonprod", auth.instance != .nonprod {
-            auth.setInstance(.nonprod)
-        }
-        let instruction = recipe.prompt ?? recipe.displayTitle
+        if instance == "nonprod", auth.instance != .nonprod { auth.setInstance(.nonprod) }
+        if instance == "production", auth.instance != .production { auth.setInstance(.production) }
         // compose() trims the instruction, which would eat a template's trailing "- " — only
         // go through it when there are captures to append.
-        let prompt = enabledContexts.isEmpty ? instruction : PromptComposer.compose(instruction: instruction, contexts: contexts)
-        ClipboardPrompt.write(prompt)
+        let text = enabledContexts.isEmpty ? prompt : PromptComposer.compose(instruction: prompt, contexts: contexts)
+        ClipboardPrompt.write(text)
+        MenuBarPanel.show()
         webModel?.focusContent()
-        let pick = [recipe.advice?.agent, recipe.advice?.model].compactMap { $0 }.joined(separator: " · ")
-        show(Toast(
-            kind: .success,
-            title: "Prompt copied — paste with ⌘V",
-            detail: pick.isEmpty ? recipe.displayTitle : "Pick \(pick)" + (recipe.isRunnable ? ", then run the chain on its answer." : ".")
-        ))
+        show(Toast(kind: .success, title: "Prompt ready — paste with ⌘V", detail: instance == "nonprod" ? "Switched to the Test instance." : nil))
     }
 
-    /// Hands a recipe to an assistant: what it is, the task, your captures, and — when this
-    /// recipe just ran — its result.
-    func handOff(_ recipe: Recipe, to target: AITarget) async {
-        AITarget.last = target
-        let runner = ChainRunner.shared
-        let result: String? = {
-            guard let run = runner.current, run.recipe.name == recipe.name, run.status == .succeeded else { return nil }
-            return run.outputText ?? run.outputPayloadJSON
-        }()
-        let brief = RecipeBrief(recipe: recipe, contexts: enabledContexts, result: result).markdown
-        do {
-            try FileManager.default.createDirectory(at: HandoffStore.directory, withIntermediateDirectories: true)
-            try Data(brief.utf8).write(to: HandoffStore.directory.appendingPathComponent("latest.md"), options: .atomic)
-        } catch {
-            log.error("Couldn't save the recipe brief: \(error.localizedDescription, privacy: .public)")
+    /// `terriergpt://handoff?text=1` — the answer as plain text, no JSON needed.
+    func exportAnswerText() async {
+        await perform {
+            let saved = try await HandoffService.exportText()
+            return Self.handoffToast(saved, copied: false)
         }
-        ClipboardPrompt.write(brief)
-        let prefilled = target.open(with: brief)
-        show(Toast(
-            kind: .success,
-            title: "Opening \(target.name)",
-            detail: prefilled ? "\(recipe.displayTitle) is filled in and on your clipboard." : "\(recipe.displayTitle) copied. Paste it with ⌘V."
-        ))
     }
 
     private static func handoffToast(_ saved: HandoffStore.Saved, copied: Bool) -> Toast {
@@ -399,17 +377,19 @@ final class CaptureCoordinator: ObservableObject {
         ))
     }
 
-    /// Saves the answer (its JSON block, else its text) and drops it into the inbox, where the
-    /// recipe that claims its contract picks it up — TerrierGPT to Claude/Grok in one click.
+    /// Saves the answer (its JSON block, else its text) and drops it into the shared inbox, where
+    /// the CTS Recipes recipe that claims its contract picks it up.
     func sendHandoffToInbox() async {
         await perform {
             let saved = try await HandoffService.export(contract: nil, copyToClipboard: false)
             let dropped = try Inbox.drop(saved.url, from: "terriergpt", hops: 0)
-            let watching = InboxWatcher.shared.isEnabled
+            // CTS Recipes watches the inbox; the link wakes it if it isn't running.
+            let recipes = CTSRecipesApp.isInstalled
+            if recipes, let url = URL(string: "ctsrecipes://inbox") { CTSRecipesApp.open(url) }
             return Toast(
-                kind: watching ? .success : .info,
-                title: "Sent to inbox",
-                detail: watching ? dropped.lastPathComponent : "The inbox isn't being watched — turn it on in ⋯ ▸ Automation",
+                kind: recipes ? .success : .info,
+                title: "Sent to CTS Recipes",
+                detail: recipes ? dropped.lastPathComponent : "Saved to the inbox. Install CTS Recipes to have a recipe pick it up.",
                 action: .reveal(dropped)
             )
         }

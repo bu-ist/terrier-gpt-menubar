@@ -15,8 +15,6 @@ struct PanelHeader: View {
     @Binding var launchAtLogin: Bool
 
     @Namespace private var glass
-    @State private var showHistory = false
-    @State private var showRecipes = false
 
     var body: some View {
         HStack(spacing: TG.Space.snug) {
@@ -29,7 +27,6 @@ struct PanelHeader: View {
             GlassEffectContainer(spacing: TG.Space.merge) {
                 HStack(spacing: TG.Space.controlGap) {
                     historyControls
-                    recipesButton
                     captureMenu
                     overflowMenu
                 }
@@ -104,21 +101,6 @@ struct PanelHeader: View {
         }
         .transition(.blurReplace)
         .tgAnimation(TG.Motion.morph, value: webModel.canGoBack || webModel.canGoForward)
-    }
-
-    private var recipesButton: some View {
-        Button {
-            showRecipes.toggle()
-        } label: {
-            Image(systemName: "square.stack.3d.up.fill")
-        }
-        .buttonStyle(.glassCircle(tint: TG.violet, id: "recipes", in: glass))
-        .keyboardShortcut("r", modifiers: [.command, .shift])
-        .help("Recipes — working-group skills, already chained (⇧⌘R)")
-        .accessibilityLabel("Recipes")
-        .popover(isPresented: $showRecipes, arrowEdge: .bottom) {
-            RecipesView(coordinator: coordinator, isPresented: $showRecipes)
-        }
     }
 
     private var captureMenu: some View {
@@ -207,7 +189,7 @@ struct PanelHeader: View {
                 Label("Instance", systemImage: "server.rack")
             }
 
-            AutomationMenu(coordinator: coordinator, showHistory: $showHistory)
+            AutomationMenu(coordinator: coordinator)
 
             Divider()
 
@@ -245,8 +227,6 @@ struct PanelHeader: View {
         .fixedSize()
         .help("More")
         .accessibilityLabel("More options")
-        .popover(isPresented: $showHistory, arrowEdge: .bottom) {
-            RunHistoryView()
-        }
+
     }
 }

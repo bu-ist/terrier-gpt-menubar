@@ -278,49 +278,19 @@ private struct SuggestionChip: View {
 
 // MARK: - Automation menu
 
-/// Chains, the inbox, and raw handoff files: the plumbing for scripted handoffs. Lives under
-/// the header's ⋯ menu so the dock can stay about the answer in front of you.
+/// Raw handoff files and the way into CTS Recipes. Lives under the header's ⋯ menu so the
+/// dock can stay about the answer in front of you.
 struct AutomationMenu: View {
 
     @ObservedObject var coordinator: CaptureCoordinator
-    @ObservedObject private var runner = ChainRunner.shared
-    @ObservedObject private var inbox = InboxWatcher.shared
-    @Binding var showHistory: Bool
 
     var body: some View {
         Menu {
-            let recipes = RecipeStore.load()
-            Section("Run a chain") {
-                ForEach(recipes.recipes.filter(\.isRunnable)) { recipe in
-                    Button {
-                        runner.start(recipe, origin: .panel)
-                    } label: {
-                        Text(recipe.displayTitle)
-                        Text(recipe.steps.map(\.label).joined(separator: " → "))
-                    }
+            Section("CTS Recipes") {
+                if CTSRecipesApp.isInstalled {
+                    Button("Open CTS Recipes") { CTSRecipesApp.show() }
                 }
-                ForEach(recipes.errors.keys.sorted(), id: \.self) { file in
-                    Button("\(file): \(recipes.errors[file] ?? "")") {}
-                        .disabled(true)
-                }
-            }
-            .disabled(runner.isRunning)
-            Button("Open recipes folder") {
-                NSWorkspace.shared.open(RecipeStore.directory)
-            }
-
-            Button("Run history…") { showHistory = true }
-
-            Section("Inbox") {
-                Toggle("Watch the inbox", isOn: Binding(
-                    get: { inbox.isEnabled },
-                    set: { inbox.setEnabled($0) }
-                ))
-                Toggle("Keep watching when closed", isOn: Binding(
-                    get: { inbox.agentInstalled },
-                    set: { inbox.setAgentInstalled($0) }
-                ))
-                Button("Send answer to inbox") {
+                Button("Send answer to CTS Recipes") {
                     Task { await coordinator.sendHandoffToInbox() }
                 }
             }
@@ -356,10 +326,6 @@ struct AutomationMenu: View {
                 Button("Handoffs") {
                     try? FileManager.default.createDirectory(at: HandoffStore.directory, withIntermediateDirectories: true)
                     NSWorkspace.shared.open(HandoffStore.directory)
-                }
-                Button("Runs") {
-                    try? FileManager.default.createDirectory(at: ChainRunner.runsDirectory, withIntermediateDirectories: true)
-                    NSWorkspace.shared.open(ChainRunner.runsDirectory)
                 }
                 Button("Inbox") {
                     try? Inbox.prepare()

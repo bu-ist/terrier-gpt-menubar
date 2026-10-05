@@ -27,7 +27,7 @@ Built against the macOS 27 SDK using Liquid Glass.
 
 | Piece | What it does |
 |---|---|
-| Header | Name, a status dot, and three controls: Back/Forward (only once there's history), Capture, and ⋯. Reload, Open in Browser, the Prod/Test instance, Launch at Login, and **Automation** (chains, inbox, JSON handoffs, folders) live in ⋯ |
+| Header | Name, a status dot, and three controls: Back/Forward (only once there's history), Capture, and ⋯. Reload, Open in Browser, the Prod/Test instance, Launch at Login, and **Automation** (JSON handoffs, Send to CTS Recipes, folders) live in ⋯ |
 | Session status | A green dot when signed in; a labelled pill (Connecting / Signing in / Signed out) only when something needs attention |
 | Context tray | Capture chips, tinted per source, morphing in and out via `glassEffectID`. **Copy prompt** (⇧⌘C) lives here, next to the captures it copies |
 | Action dock | *Save to* Notes · Reminders · Calendar (icon buttons with tooltips) and one primary **Hand off** button |
@@ -84,7 +84,6 @@ Events under the hardened runtime.
 | ⇧⌘V | Capture the clipboard |
 | ⇧⌘C | Copy the composed prompt |
 | ⇧⌘J | Hand off the answer to Claude, Gemini, or Grok (then ↩ for the last one used) |
-| ⇧⌘R | Recipes |
 | ⌘L | Focus the chat |
 | ⌘Q | Quit |
 
@@ -106,67 +105,22 @@ The picker has a *What should it do?* field (empty means "pick up where TerrierG
 with one-click suggestions: Fact-check, Go deeper, Draft a reply, Summarize. The last
 assistant you chose is remembered and answers to ↩.
 
-## Recipes: working-group skills, already chained
+## Recipes moved to CTS Recipes
 
-**Recipes** (the stacked-squares button in the header, ⇧⌘R) is a gallery of the CTS AI
-Working Group's documented skill chains (`docs/orchestration`, `skills/cts-orchestrate`),
-grouped by shelf: Daily, Weekly, Tickets, Knowledge, Career, Hosts, Answer.
+Skill chains, schedules, run history, and the inbox now live in **CTS Recipes**, a separate
+macOS app (`../CTSRecipes`). That keeps TerrierGPT Menu open to everyone at BU, not just CTS.
+The two apps work together through links and a shared handoffs folder:
 
-Each card shows:
+| From | To | How |
+|---|---|---|
+| CTS Recipes | TerrierGPT | `terriergpt://ask?prompt=…&instance=nonprod`: switches instance, copies the prompt, shows the panel, focuses the chat |
+| CTS Recipes | TerrierGPT's answer | `terriergpt://handoff?contract=…` or `?text=1`; CTS Recipes then reads `handoffs/latest.json` |
+| TerrierGPT | CTS Recipes | **⋯ ▸ Automation ▸ Send answer to CTS Recipes**: drops the answer into the shared inbox and wakes CTS Recipes with `ctsrecipes://inbox` |
+| Old links | CTS Recipes | `terriergpt://run?recipe=…` and `terriergpt://inbox` forward to `ctsrecipes://`, so existing Shortcuts and scripts keep working |
 
-- **The chain**: the skills in order, e.g. `ticket-digest → ticket-hygiene → who → cts-daily-brief`.
-- **The advice**: where it runs best and with what — *your Mac · Claude Sonnet 5.5 · medium
-  effort*, *TerrierGPT · KB Desk (Test)*, *Claude · Opus 5.5 · high* — and where the result
-  goes next. Hover for the why; expand the card for the guardrail ("Stops before Submit").
-- **One primary button** that fits the advice:
-  - **Run**: steps on this Mac, through the chain runner.
-  - **Ask**: copies the TerrierGPT prompt (with your captures), switches to Test when the
-    recipe needs a desk, and focuses the chat.
-  - **Open**: hands the recipe to Claude, Gemini, or Grok.
-- **Start it**, in the expanded card: run the chain on TerrierGPT's answer, an in-app schedule
-  switch, the matching Shortcut (*CTS Morning Desk*, …) with a Run button when it's in your
-  library, the `terriergpt://run?recipe=…` line for scripts and AppleScript, and whether a
-  cloud scheduler (Claude scheduled tasks, Grok Tasks) can take it.
-
-When a recipe finishes and its advice names a next assistant, the run strip offers
-**Continue in Claude** (or Grok or Gemini). It hands off the recipe, its task, and the
-run's result.
-
-### The catalog
-
-| Recipe | Chain | Best in | Suggested schedule |
-|---|---|---|---|
-| Morning desk | ticket-digest → ticket-hygiene → who → cts-daily-brief | Mac | Weekdays 08:00 |
-| End of day | end-of-day-wrap-up | Mac | Weekdays 16:30 |
-| Tuesday RedAlert | red-alert-weekly → fleet-chase → ticket-hygiene → career-snapshot | Mac | Tue 09:00 |
-| Patterns → KB gaps | ticket-pattern-analyzer → kb-gap-check → draft-kb | Mac | Mon 09:15 |
-| Resolved ticket → KB | log-triage → kb-gap-check → draft-kb | Mac | — |
-| KB Desk → draft → review | kb-retrieve → kb-gap-check → draft-kb → review | TerrierGPT Test, then Claude | — |
-| Ticket search → HTML | ticket-search-retrieve → ticket-search-report → servicenow-search-report | TerrierGPT Test | — |
-| Triage → reply or escalate | triage → escalate | TerrierGPT | — |
-| HIPAA ISAR review | isar-device-review → servicenow-file | Mac (Opus, high) | never on a timer |
-| Post-incident recap | post-incident-recap → kb-article-drafter | TerrierGPT | — |
-| Career snapshot → self-review | career-snapshot → annual-review-prep | Mac, then Claude | — |
-| Ubuntu lab host build | ubuntu-ad-join → crowdstrike → rapid7 | Claude Code on the host | — |
-
-Mac recipes call the BU-CTS-RKC overlay's `scripts/run-*.sh`, which load `config.env` and
-then the WG starter. Personal values therefore stay out of the app and out of the WG repo.
-
-The catalog lives in `Groups/Chains/RecipeCatalog.swift` and is seeded as JSON files into the
-recipes folder. Edit them freely: a seeded file is only replaced when it still matches what
-shipped. New recipe fields, all optional: `category`, `icon`, `skills`, `advice` (`place`,
-`agent`, `model`, `effort`, `why`, `then`), `prompt`, `instance`, `schedule` (`weekdays`
-ISO Mon=1, `time` "HH:mm"), `shortcut`, `stops_before`. A recipe with a `prompt` and no
-`steps` is a guided TerrierGPT prompt or handoff.
-
-### Schedules run in the app, not launchd
-
-A launchd job runs as bare `/bin/bash`, which macOS doesn't let into `~/Documents`, where the
-WG clone and the overlay live. Those jobs die with "Operation not permitted". The app gets
-that access once, so its scheduler (`RecipeScheduler`) runs the recipes you switch on.
-Nothing is scheduled by default; the switch is the consent. If the Mac was asleep at the
-scheduled time, the recipe runs within the next two hours or not at all. Steps with
-`confirm` still ask.
+Shared code is compiled into both apps from this repo rather than copied:
+`TGDesign.swift`, `AmbientBackdrop.swift`, `HandoffStore.swift`, `HandoffExtractor.swift`,
+`BuiltInContracts.swift`, `AITarget.swift`, and `Inbox.swift`.
 
 ## Handoffs to scripts and agents (phase 1)
 
@@ -217,7 +171,7 @@ End-to-end check, headless and read-only:
 `Scripts/handoff/url.sh kb-gap-verdict | Scripts/handoff/pipe.sh claude` (or `grok`).
 
 **Ticket Search Desk (CTS):** after TerrierGPT emits `ticket-search-report`, run the
-`ticket-search-html` recipe (⋯ ▸ Automation ▸ Run a chain) or
+`ticket-search-html` recipe in CTS Recipes or
 `Scripts/handoff/ticket-search-html.sh` against `handoffs/latest.json`. That fills the WG
 `servicenow-search-report` HTML template into `~/Downloads`. Same pattern as KB Desk, different
 contract. Presentation notes live in the WG clone:
@@ -235,7 +189,7 @@ Saving a JSON handoff doesn't need a JSON block anymore:
 2. **Otherwise the answer text** is saved as a `terriergpt-answer` with
    `generated_by: "app-fallback"` and the text in `payload.answer` and `text`. The text comes
    from the selection, else the newest assistant message, else the page text (last 20k
-   characters). Recipes and inbox routing treat it like any other `terriergpt-answer`.
+   characters). CTS Recipes treats it like any other `terriergpt-answer`.
 
 A bare JSON block with no `contract` is skipped, because it's usually an example
 in the answer. `terriergpt://handoff?strict=1` (or the intent with
@@ -258,88 +212,10 @@ next step.
 markup matches none of them, the fallback uses the page text instead. It still works, just
 with more noise.
 
-## Chains (phase 2)
+## Chains, inbox, and history
 
-A **recipe** is a JSON file that hands the answer from agent to agent. Each step's output
-envelope becomes the next step's input, so Claude, Grok, and your scripts all read and write
-the same shape. Recipes are data, so adding a flow means adding a file, not rebuilding the app.
-
-```
-~/Library/Application Support/TerrierGPTMenu/recipes/   ← one .json per chain (examples seeded on first run)
-~/Library/Application Support/TerrierGPTMenu/runs/<stamp>-<recipe>/
-    00-input.json  01-<step>.json  01-<step>.stdout.json  01-<step>.stderr.log  run.json
-~/Library/Application Support/TerrierGPTMenu/runs/latest.json   ← last successful result
-```
-
-```json
-{
-  "title": "KB desk → draft-kb → Grok review",
-  "input": { "from": "page", "contract": "kb-gap-verdict" },
-  "steps": [
-    { "id": "draft", "agent": "claude", "cwd": "~/Documents/GitHub/cts-ai-working-group",
-      "prompt": "/cts-orchestrate kb-desk-handoff …", "allow": ["Read", "Grep", "Glob", "Skill"] },
-    { "id": "review", "agent": "grok", "confirm": "Send the drafts to Grok?",
-      "prompt": "Review these KB drafts…" }
-  ]
-}
-```
-
-| Field | Meaning |
-|---|---|
-| `input.from` | `page` (a JSON block, optionally a specific `contract`), `page-text` (selection or page text, for answers with no JSON), `latest` (`handoffs/latest.json`), `none` |
-| `agent` | `claude` (`claude -p`, input on stdin), `grok` (`grok --prompt-file`, input appended to the prompt because Grok ignores stdin), `command` (any argv, input on stdin) |
-| `prompt` / `command` | Placeholders: `{{input_path}}`, `{{run_dir}}`, `{{recipe}}` |
-| `output_schema` | A contract name or a schema path. Passed as `--json-schema` and checked on the way out. A mismatch stops the chain |
-| `allow` | Tools the agent may use. Headless runs can't ask, so anything else is denied, and the panel lists what was refused |
-| `permission_mode`, `max_turns`, `model`, `cwd`, `timeout` (s, default 600) | Passed through. `bypassPermissions` is refused |
-| `confirm` | Pause before the step with this message and a preview of its input |
-
-**Starting a chain:**
-
-| From | How |
-|---|---|
-| Panel | **⋯ ▸ Automation ▸ Run a chain ▸ *recipe***. Progress shows in the strip above the dock, with Cancel, Copy result, and Show |
-| Shortcuts | *Run TerrierGPT Chain* (Chain, optional Input, Return: text / JSON payload / envelope / path, Wait). Its Input can be another action's output, so Shortcuts can chain chains |
-| URL / AppleScript / Raycast | `terriergpt://run?recipe=kb-desk-handoff[&input=/path/handoff.json]`, or `Scripts/handoff/run.sh <recipe> [input]`. **A link always asks first** and names the steps and any input file, because any web page can open a `terriergpt://` URL |
-
-One chain runs at a time. Nothing in a chain sends mail, publishes, or submits unless a step
-is explicitly allowed the tool that does it, and the example recipes allow none.
-
-## Inbox and history (phase 3)
-
-**The inbox** starts chains without a click. Anything that can write a file (a Claude or Grok
-session, a script, a Shortcut's *Save File*, another chain) drops a handoff envelope here:
-
-```
-~/Library/Application Support/TerrierGPTMenu/handoffs/inbox/
-    <new files>   processing/   done/   failed/   unrouted/
-```
-
-- **Routing:** the file's `"recipe"` field if it has one, otherwise the single recipe whose
-  `input.contract` matches the file's `contract`. The recipe must opt in with `"inbox": true`.
-  A file nothing claims, or one two recipes both claim, goes to `unrouted/` with a toast
-  saying why. Nothing is guessed.
-- **Chains of chains:** `"output_to_inbox": true` on a recipe drops its result back into the
-  inbox with `hops + 1`, so another recipe can pick it up (Claude → Grok → your script → …).
-  After 5 hops the file is parked instead of run, so a recipe that feeds itself can't loop.
-- **Writing safely:** write a dotfile or `*.tmp`, then rename. Those are never picked up
-  half-written. `Scripts/handoff/drop.sh file.json [recipe]` (or `… | drop.sh -`) does this.
-- **In the panel:** **⋯ ▸ Automation ▸ Inbox ▸ Watch the inbox** turns it on. **Send newest JSON
-  block to inbox** goes from TerrierGPT to whichever recipe claims the contract, in one click.
-- **When the app is closed:** **…even when the app is closed** installs a per-user `launchd`
-  agent (`~/Library/LaunchAgents/com.brianmatute.TerrierGPTMenu.inbox.plist`) that watches
-  the folder and runs `open -g terriergpt://inbox`, which launches the app. The agent does
-  nothing else, so what happens to a file is still decided and logged by the app. launchd
-  also fires the agent once when it loads, which means **with the agent on, the app opens at
-  login** and picks up anything dropped in the meantime. Turning the toggle off removes the
-  agent.
-
-`terriergpt://inbox` only looks at files already in the folder and only runs recipes that
-opted in, so a web page opening that link can't choose what runs.
-
-**Run history:** **⋯ ▸ Automation ▸ Run history…** lists past runs (status, trigger, time, cost), read
-from each run's `run.json`. From there you can copy a result, run a chain again on the same
-input, send a result to the inbox, or open the run folder.
+They moved to CTS Recipes; see its README. TerrierGPT Menu still writes the handoff files those
+features read.
 
 ## Bugs fixed in this pass
 

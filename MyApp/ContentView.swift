@@ -10,7 +10,6 @@ struct ContentView: View {
 
     @ObservedObject private var auth = AuthManager.shared
     @ObservedObject private var coordinator = CaptureCoordinator.shared
-    @ObservedObject private var runner = ChainRunner.shared
     @StateObject private var webModel = WebViewModel()
 
     @State private var launchAtLogin = LaunchAtLogin.isEnabled
@@ -31,13 +30,6 @@ struct ContentView: View {
 
                 page
 
-                if let run = runner.current {
-                    RunStrip(runner: runner, run: run)
-                        .padding(.horizontal, TG.Space.regular)
-                        .padding(.top, TG.Space.snug)
-                        .transition(.blurReplace)
-                }
-
                 ActionDock(coordinator: coordinator, pageTitle: webModel.pageTitle)
                     .padding(.horizontal, TG.Space.regular)
                     .padding(.top, TG.Space.snug)
@@ -47,7 +39,6 @@ struct ContentView: View {
             toastLayer
         }
         .tgAnimation(TG.Motion.morph, value: coordinator.contexts.count)
-        .tgAnimation(TG.Motion.morph, value: runner.current?.id)
         .onAppear { coordinator.webModel = webModel }
         .onChange(of: webModel.lastDownload) { _, url in
             guard let url else { return }
