@@ -29,7 +29,7 @@ nonisolated enum HandoffStore {
             return URL(fileURLWithPath: (custom as NSString).expandingTildeInPath, isDirectory: true)
         }
         return FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent("Documents/GitHub/cts-ai-working-group/docs/contracts", isDirectory: true)
+            .appendingPathComponent("Developer/GitHub/cts-ai-working-group/docs/contracts", isDirectory: true)
     }
 
     /// Contract names with a schema on disk, e.g. `kb-gap-verdict`, sorted — the working-group

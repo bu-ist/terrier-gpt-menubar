@@ -2,7 +2,7 @@
 # After Export TerrierGPT Answer as Handoff (contract=ticket-search-report),
 # fill the HTML report from latest.json (or a path on stdin / $1).
 set -euo pipefail
-WG="${CTS_AI_WG_ROOT:-$HOME/Documents/GitHub/cts-ai-working-group}"
+WG="${CTS_AI_WG_ROOT:-$HOME/Developer/GitHub/cts-ai-working-group}"
 PY="$WG/docs/orchestration/examples/handoff-ticket-search.py"
 LATEST="$HOME/Library/Application Support/TerrierGPTMenu/handoffs/latest.json"
 file="${1:-}"
