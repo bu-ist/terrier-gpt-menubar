@@ -95,6 +95,15 @@ final class CaptureCoordinator: ObservableObject {
 
     func captureBrowser(_ target: BrowserTarget? = nil) async {
         await perform {
+            let resolved = target ?? BrowserBridge.frontmostBrowser()
+            if let resolved, let context = await CompanionBridge.capture(from: resolved) {
+                self.add(context)
+                return Toast(
+                    kind: context.partial == nil ? .success : .info,
+                    title: "Captured from \(context.source.label)",
+                    detail: context.partial ?? "\(context.title) · Companion"
+                )
+            }
             let context = try await {
                 if let target { return try await BrowserBridge.capture(from: target) }
                 return try await BrowserBridge.captureFromFrontmost()

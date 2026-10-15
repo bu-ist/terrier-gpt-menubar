@@ -32,6 +32,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         // The app's own contract schemas (terriergpt-answer), before anything validates.
         BuiltInContracts.install()
+        // Registers the Chrome native host the companion uses to write handoffs.
+        CompanionBridge.install()
 
     }
 
