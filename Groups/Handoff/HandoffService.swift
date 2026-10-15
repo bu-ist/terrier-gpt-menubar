@@ -185,6 +185,16 @@ enum HandoffService {
             guard let prompt = value("prompt"), !prompt.isEmpty else { return }
             CaptureCoordinator.shared.ask(prompt: prompt, instance: value("instance"))
 
+        case "companion":
+            // The native host saved a file and is only announcing it. The body stays in the file.
+            let title = value("title")?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            let recipes = flag("recipes")
+            CaptureCoordinator.shared.show(Toast(
+                kind: .success,
+                title: recipes ? "Companion sent this to CTS Recipes" : "Companion saved a handoff",
+                detail: title.isEmpty ? "latest.json" : title
+            ))
+
         case "handoff":
             Task {
                 if flag("text") {

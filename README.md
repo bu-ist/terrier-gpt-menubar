@@ -43,7 +43,7 @@ entirely.
 
 | Target | Mechanism | Why |
 |---|---|---|
-| Safari, Chrome, Edge, Brave, Arc, Dia, Vivaldi, Opera, Orion, Safari TP | AppleScript | No other way to read another app's active tab |
+| Safari, Chrome, Edge, Brave, Arc, Dia, Vivaldi, Opera, Orion, Safari TP | AppleScript, and the companion when it is connected | AppleScript reads the tab title, URL, and selection. Chrome, Edge, Brave, Vivaldi, and Arc ask the TerrierGPT Companion extension first, which can read the whole page, and use AppleScript when that bridge is down |
 | Finder | AppleScript | Same |
 | Notes | AppleScript | Notes has no public framework API |
 | Reminders | **EventKit** | Real permission model, typed errors, works whether or not Reminders is running |
@@ -61,6 +61,13 @@ Two details worth knowing:
 - **Nothing types into the chat box.** That would mean injecting JavaScript into markup we
   don't control, and one redesign upstream would break it silently. Captures compose into a
   prompt on the clipboard; you paste with ⌘V. Boring, but it keeps working.
+- **Chrome capture prefers the companion.** The first launch registers a native-messaging
+  host for the Chromium browsers already installed. While that host is connected, capturing
+  the front tab asks the extension for the page text (a ServiceNow form, not only the
+  selection) and falls back to AppleScript when it isn't. An answer the extension sends
+  lands in `handoffs/` as `latest.json`, and To Recipes also drops it in the inbox.
+  CTS Recipes writes `browser-actions.json` in this same support folder. The host
+  only reads that file when the companion asks for its catalog.
 
 ### Permissions
 
