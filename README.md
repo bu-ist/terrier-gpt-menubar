@@ -39,6 +39,24 @@ nothing moves differently from anything else. **Every animated surface routes th
 `.tgAnimation`, which drops to no animation under Reduce Motion**, and the mesh backdrop stops
 entirely.
 
+## Safari extension
+
+The app carries **TerrierGPT Companion** for Safari as an app extension (`SafariExtension/`). Its web
+half is the Chrome companion (`../terrier-gpt-companion`) built for Safari: the panel docks inside
+the tab because Safari has no side panel. `SafariWebExtensionHandler` replaces the Chrome native host
+for Safari and writes the same handoff envelopes, `latest.json`, and inbox drops, and serves
+CTS Recipes' `browser-actions.json`. The extension is sandboxed with one exception:
+`~/Library/Application Support/TerrierGPTMenu/`.
+
+- The web half is not copied into this repo. The target's **Build web extension** phase runs
+  `Scripts/build-safari-extension.sh`, which tests and builds `../terrier-gpt-companion` for Safari on
+  every build. Fix web bugs in the companion, press Run here, and Safari has the fix. It needs Node and
+  the companion cloned next to this repo (`TERRIERGPT_COMPANION_DIR` overrides the path).
+- Work here only for the native side: `SafariExtension/Sources`, signing, and entitlements.
+- Bridge tests without Safari: `Scripts/tests/test-safari-handler.sh`.
+- Turn it on: Safari → Settings → Extensions → TerrierGPT Companion. A Debug build is ad hoc signed,
+  so it also needs Develop → *Allow Unsigned Extensions*.
+
 ## Integrations, and why each one works the way it does
 
 | Target | Mechanism | Why |
@@ -115,7 +133,7 @@ assistant you chose is remembered and answers to ↩.
 ## Recipes moved to CTS Recipes
 
 Skill chains, schedules, run history, and the inbox now live in **CTS Recipes**, a separate
-macOS app (`../CTSRecipes`). That keeps TerrierGPT Menu open to everyone at BU, not just CTS.
+macOS app (`../cts-recipes`). That keeps TerrierGPT Menu open to everyone at BU, not just CTS.
 The two apps work together through links and a shared handoffs folder:
 
 | From | To | How |
