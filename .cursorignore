@@ -1,0 +1,20 @@
+# Keep Cursor's index and agent away from build output, per-user Xcode state, and signing material.
+
+# Build output
+build/
+DerivedData/
+.build/
+.swiftpm/
+
+# Per-user Xcode state
+xcuserdata/
+*.xcuserstate
+
+# Signing and secrets
+*.p12
+*.mobileprovision
+*.provisionprofile
+*.xcconfig.local
+Secrets.xcconfig
+.env
+.env.*
