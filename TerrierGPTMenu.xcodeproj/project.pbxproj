@@ -7,8 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		DD0000000000000000000001 /* DropDocKit in Frameworks */ = {isa = PBXBuildFile; productRef = DD0000000000000000000002 /* DropDocKit */; };
 		5A0000000000000000000001 /* TerrierGPT Companion.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 5A0000000000000000000010 /* TerrierGPT Companion.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		DD0000000000000000000001 /* DropDocKit in Frameworks */ = {isa = PBXBuildFile; productRef = DD0000000000000000000002 /* DropDocKit */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -35,10 +35,10 @@
 
 /* Begin PBXFileReference section */
 		000000000000000000000120 /* TerrierGPTMenu.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = TerrierGPTMenu.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		6F714E113023B93700F8CEE9 /* TerrierGPTMenu-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = "TerrierGPTMenu-Info.plist"; sourceTree = "<group>"; };
 		5A0000000000000000000010 /* TerrierGPT Companion.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = "TerrierGPT Companion.appex"; sourceTree = BUILT_PRODUCTS_DIR; };
 		5A0000000000000000000011 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		5A0000000000000000000012 /* Companion.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Companion.entitlements; sourceTree = "<group>"; };
+		6F714E113023B93700F8CEE9 /* TerrierGPTMenu-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = "TerrierGPTMenu-Info.plist"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -47,14 +47,14 @@
 			path = MyApp;
 			sourceTree = "<group>";
 		};
-		6FDBE8D030260967005D5CB2 /* Groups */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			path = Groups;
-			sourceTree = "<group>";
-		};
 		5A0000000000000000000050 /* Sources */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = Sources;
+			sourceTree = "<group>";
+		};
+		6FDBE8D030260967005D5CB2 /* Groups */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = Groups;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -160,7 +160,7 @@
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
 				LastSwiftUpdateCheck = 2630;
-				LastUpgradeCheck = 2700;
+				LastUpgradeCheck = 2710;
 				TargetAttributes = {
 					000000000000000100000000 = {
 						CreatedOnToolsVersion = 26.3;
@@ -210,17 +210,12 @@
 		5A0000000000000000000047 /* Build web extension */ = {
 			isa = PBXShellScriptBuildPhase;
 			alwaysOutOfDate = 1;
-			inputFileListPaths = (
-			);
-			inputPaths = (
-			);
 			name = "Build web extension";
-			outputFileListPaths = (
-			);
-			outputPaths = (
-			);
 			shellPath = /bin/sh;
-			shellScript = "exec \"$SRCROOT/Scripts/build-safari-extension.sh\"\n";
+			shellScript = (
+				"exec \"$SRCROOT/Scripts/build-safari-extension.sh\"",
+				"",
+			);
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -282,6 +277,7 @@
 				COPY_PHASE_STRIP = NO;
 				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = Q9HBRD8A3Z;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
@@ -347,6 +343,7 @@
 				COPY_PHASE_STRIP = NO;
 				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = Q9HBRD8A3Z;
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
@@ -373,10 +370,8 @@
 			buildSettings = {
 				AUTOMATION_APPLE_EVENTS = YES;
 				CODE_SIGN_IDENTITY = "Apple Development";
-				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "-";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = Q9HBRD8A3Z;
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
@@ -425,10 +420,8 @@
 			buildSettings = {
 				AUTOMATION_APPLE_EVENTS = YES;
 				CODE_SIGN_IDENTITY = "Apple Development";
-				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "-";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = Q9HBRD8A3Z;
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
@@ -477,10 +470,8 @@
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = SafariExtension/Companion.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
-				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "-";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = Q9HBRD8A3Z;
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = NO;
@@ -514,10 +505,8 @@
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = SafariExtension/Companion.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
-				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "-";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = Q9HBRD8A3Z;
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = NO;
