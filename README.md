@@ -133,7 +133,7 @@ assistant you chose is remembered and answers to ↩.
 ## Recipes moved to CTS Recipes
 
 Skill chains, schedules, run history, and the inbox now live in **CTS Recipes**, a separate
-macOS app (`../CTSRecipes`). That keeps TerrierGPT Menu open to everyone at BU, not just CTS.
+macOS app (`../cts-recipes`). That keeps TerrierGPT Menu open to everyone at BU, not just CTS.
 The two apps work together through links and a shared handoffs folder:
 
 | From | To | How |
