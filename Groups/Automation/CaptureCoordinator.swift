@@ -324,19 +324,31 @@ final class CaptureCoordinator: ObservableObject {
     // MARK: - Asked from outside
 
     /// `terriergpt://ask` — another app (CTS Recipes, a Shortcut) wants a prompt in the chat:
-    /// switch instance if asked, put the prompt (plus any captures) on the clipboard, show the
-    /// panel, and focus the composer. Pasting stays with the person, as everywhere else.
+    /// switch instance if asked, open a fresh `/c/new` on that host, put the prompt (plus any
+    /// captures) on the clipboard, show the panel, and focus the composer. Pasting stays with
+    /// the person, as everywhere else.
     func ask(prompt: String, instance: String?) {
         let auth = AuthManager.shared
-        if instance == "nonprod", auth.instance != .nonprod { auth.setInstance(.nonprod) }
-        if instance == "production", auth.instance != .production { auth.setInstance(.production) }
+        if instance != nil {
+            auth.prepareAsk(instance: instance)
+        }
         // compose() trims the instruction, which would eat a template's trailing "- " — only
         // go through it when there are captures to append.
         let text = enabledContexts.isEmpty ? prompt : PromptComposer.compose(instruction: prompt, contexts: contexts)
         ClipboardPrompt.write(text)
         MenuBarPanel.show()
-        webModel?.focusContent()
-        show(Toast(kind: .success, title: "Prompt ready — paste with ⌘V", detail: instance == "nonprod" ? "Switched to the Test instance." : nil))
+        // Let the WebView start the Test `/c/new` load before focusing.
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 350_000_000)
+            webModel?.focusContent()
+        }
+        let detail: String?
+        switch TerrierInstance.resolve(instance) {
+        case .nonprod: detail = "Test · \(TerrierInstance.nonprod.homeURL.host ?? "nonprod")"
+        case .production: detail = "Campus (prod)"
+        case .none: detail = nil
+        }
+        show(Toast(kind: .success, title: "Prompt ready — paste with ⌘V", detail: detail))
     }
 
     /// `terriergpt://handoff?text=1` — the answer as plain text, no JSON needed.
