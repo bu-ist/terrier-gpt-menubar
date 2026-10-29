@@ -298,7 +298,8 @@ struct WebView: NSViewRepresentable {
             webView?.reload()
         }
 
-        /// Full navigation to home (post-logout clean slate).
+        /// Full navigation to home (post-logout clean slate), or to AuthManager.pendingHomeURL
+        /// when Ask requested a fresh `/c/new`.
         func loadHomeIfNeeded(trigger: UUID) {
             if lastHomeTrigger == nil {
                 lastHomeTrigger = trigger
@@ -306,7 +307,14 @@ struct WebView: NSViewRepresentable {
             }
             guard lastHomeTrigger != trigger else { return }
             lastHomeTrigger = trigger
-            webView?.load(URLRequest(url: homeURL))
+            let destination: URL = {
+                if let pending = AuthManager.shared.pendingHomeURL {
+                    AuthManager.shared.clearPendingHomeURL()
+                    return pending
+                }
+                return homeURL
+            }()
+            webView?.load(URLRequest(url: destination))
         }
 
         private func reportNavigation(from webView: WKWebView, url: URL? = nil) {

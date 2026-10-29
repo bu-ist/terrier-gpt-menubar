@@ -34,7 +34,32 @@ enum TerrierInstance: String, CaseIterable, Identifiable {
         case .production:
             return URL(string: "https://terriergpt.bu.edu/")!
         case .nonprod:
-            return URL(string: "https://test.terriergpt-nonprod.bu.edu/")!
+            // Canonical Test host (AIDA). test.terriergpt-nonprod.bu.edu 307s here.
+            return URL(string: "https://test.terrierchat-nonprod.bu.edu/")!
+        }
+    }
+
+    /// Fresh chat on this instance (agent picker / blank composer).
+    var newChatURL: URL {
+        switch self {
+        case .production:
+            return URL(string: "https://terriergpt.bu.edu/c/new")!
+        case .nonprod:
+            return URL(string: "https://test.terrierchat-nonprod.bu.edu/c/new")!
+        }
+    }
+
+    /// Recipes / URL schemes pass `nonprod` or `production`; accept a few aliases.
+    static func resolve(_ raw: String?) -> TerrierInstance? {
+        guard let raw = raw?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased(),
+              !raw.isEmpty else { return nil }
+        switch raw {
+        case "nonprod", "test", "terrierchat", "terrierchat-nonprod":
+            return .nonprod
+        case "production", "prod", "campus":
+            return .production
+        default:
+            return TerrierInstance(rawValue: raw)
         }
     }
 
@@ -69,6 +94,8 @@ final class AuthManager: ObservableObject {
     @Published private(set) var reloadToken = UUID()
     /// Bumped on logout / instance switch so the web view loads home (not a bare reload).
     @Published private(set) var loadHomeToken = UUID()
+    /// When set, the next home load uses this URL (e.g. `/c/new` after Ask) then clears.
+    @Published private(set) var pendingHomeURL: URL?
 
     private init() {
         let raw = UserDefaults.standard.string(forKey: Self.instanceDefaultsKey) ?? ""
@@ -76,12 +103,29 @@ final class AuthManager: ObservableObject {
     }
 
     /// Switch Prod ↔ Test and navigate to that host's home.
-    func setInstance(_ newValue: TerrierInstance) {
-        guard newValue != instance else { return }
+    /// - Parameter forceReload: bump home even when already on `newValue` (Ask / deep links).
+    func setInstance(_ newValue: TerrierInstance, forceReload: Bool = false) {
+        guard forceReload || newValue != instance else { return }
         instance = newValue
         UserDefaults.standard.set(newValue.rawValue, forKey: Self.instanceDefaultsKey)
         apply(phase: .loading)
+        pendingHomeURL = nil
         loadHomeToken = UUID()
+    }
+
+    /// Switch instance if asked and open a fresh `/c/new` in one navigation (Ask / Recipes).
+    func prepareAsk(instance raw: String?) {
+        if let target = TerrierInstance.resolve(raw) {
+            instance = target
+            UserDefaults.standard.set(target.rawValue, forKey: Self.instanceDefaultsKey)
+        }
+        pendingHomeURL = instance.newChatURL
+        apply(phase: .loading)
+        loadHomeToken = UUID()
+    }
+
+    func clearPendingHomeURL() {
+        pendingHomeURL = nil
     }
 
     // MARK: - Navigation-driven session (source of truth)
@@ -216,10 +260,15 @@ final class AuthManager: ObservableObject {
         return .signedOut
     }
 
-    /// Both campus prod and AIDA nonprod. Nonprod is `test.terriergpt-nonprod.bu.edu`
-    /// (not a subdomain of `terriergpt.bu.edu`).
+    /// Campus prod and AIDA Test. Canonical Test is `test.terrierchat-nonprod.bu.edu`;
+    /// `test.terriergpt-nonprod.bu.edu` still redirects there and must stay trusted.
     nonisolated static func isTerrierAppHost(_ host: String) -> Bool {
         if host == "terriergpt.bu.edu" || host.hasSuffix(".terriergpt.bu.edu") {
+            return true
+        }
+        if host == "test.terrierchat-nonprod.bu.edu"
+            || host == "terrierchat-nonprod.bu.edu"
+            || host.hasSuffix(".terrierchat-nonprod.bu.edu") {
             return true
         }
         if host == "test.terriergpt-nonprod.bu.edu"

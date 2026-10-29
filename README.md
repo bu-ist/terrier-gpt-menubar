@@ -1,7 +1,7 @@
 # TerrierGPT Menu Bar App
 
 A macOS menu-bar shell around [TerrierGPT](https://terriergpt.bu.edu) (campus) and
-[TerrierGPT nonprod](https://test.terriergpt-nonprod.bu.edu/) (AIDA test) — the chat, plus the two
+[TerrierGPT Test](https://test.terrierchat-nonprod.bu.edu/) (AIDA; `test.terriergpt-nonprod.bu.edu` redirects here) — the chat, plus the two
 things a browser tab can't do: pull in what you're looking at elsewhere on the Mac, and put the
 answer somewhere it still exists tomorrow.
 
@@ -9,7 +9,7 @@ answer somewhere it still exists tomorrow.
 
 - Lives in the menu bar (sparkles icon); click for the full TerrierGPT interface
 - **Prod | Test toggle** in the panel header (persists). Test is
-  `https://test.terriergpt-nonprod.bu.edu/` — use it for CTS Ticket Search Desk / KB Desk.
+  `https://test.terrierchat-nonprod.bu.edu/` — use it for CTS Ticket Search Desk / KB Desk / Morning Brief.
   An amber **TEST** badge shows whenever you are not on campus prod.
 - **Capture context** from the frontmost browser tab, the Finder selection, the clipboard, or
   your own selection inside the chat — each one shows up as a chip you can switch in or out of
