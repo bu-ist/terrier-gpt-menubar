@@ -1,5 +1,8 @@
 # TerrierGPT Menu Bar App
 
+Developed by bmatute@bu.edu for BU-IST-CTS.
+Author: Brian Matute Diaz.
+
 A macOS menu-bar shell around [TerrierGPT](https://terriergpt.bu.edu) (campus) and
 [TerrierGPT Test](https://test.terrierchat-nonprod.bu.edu/) (AIDA; `test.terriergpt-nonprod.bu.edu` redirects here) — the chat, plus the two
 things a browser tab can't do: pull in what you're looking at elsewhere on the Mac, and put the
