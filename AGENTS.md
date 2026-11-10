@@ -38,10 +38,11 @@ The Safari phase needs Node and the companion cloned next to this repo
 4. **Motion goes through `TG.Motion` and `.tgAnimation`**, which honors Reduce Motion. No ad hoc
    `withAnimation` on new surfaces.
 5. **Never type into the chat box over AppleScript.** Context goes to the clipboard or a handoff.
-6. **Signing:** do not commit a personal Team ID, provisioning profiles, or `xcuserdata/`.
+6. **Mail / Outlook drafts only — never Send.** ServiceNow writes stay in the Companion (user click).
+7. **Signing:** do not commit a personal Team ID, provisioning profiles, or `xcuserdata/`.
    The Safari extension's sandbox exception is only `~/Library/Application Support/TerrierGPTMenu/`;
    do not widen it.
-7. Recipe chains belong in `cts-recipes`, not in this app.
+8. Recipe chains belong in `cts-recipes`, not in this app.
 
 ## Workflow
 

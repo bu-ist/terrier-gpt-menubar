@@ -58,8 +58,15 @@ nonisolated struct BrowserTarget: Identifiable, Equatable {
     }
 }
 
-/// Reads the frontmost tab of a browser: title, URL, and the user's selection.
+/// Reads the frontmost tab of a browser: title, URL, and either the selection or the page text.
 nonisolated enum BrowserBridge {
+
+    enum CaptureMode {
+        /// Selection when there is one; otherwise title + URL (and a note about the empty selection).
+        case selection
+        /// Visible article / main text via a small in-page script (no Companion required).
+        case fullPage
+    }
 
     /// Field separator for the multi-value script result. Chosen to be something no page
     /// title or selection will contain; splitting on a newline would corrupt selections.
@@ -70,7 +77,12 @@ nonisolated enum BrowserBridge {
     private static let selectionJS =
         "(function(){try{var s=window.getSelection?String(window.getSelection()):'';return s.trim();}catch(e){return '';}})()"
 
-    static func capture(from target: BrowserTarget) async throws -> CapturedContext {
+    /// Compact readability-style extract. Prefer `article` / `main`, strip chrome, cap length.
+    private static let pageTextJS = """
+    (function(){try{var root=document.querySelector('article,[role=main],main,#content,.content,#gsft_main')||document.body;if(!root)return '';var clone=root.cloneNode(true);var kill=clone.querySelectorAll('script,style,nav,footer,header,noscript,svg,iframe,form[role=search]');for(var i=0;i<kill.length;i++){try{kill[i].remove();}catch(e){}}var text=(clone.innerText||clone.textContent||'').replace(/\\u00a0/g,' ').replace(/[ \\t]+\\n/g,'\\n').replace(/\\n{3,}/g,'\\n\\n').trim();if(text.length>40000)text=text.slice(0,40000);return text;}catch(e){return '';}})()
+    """
+
+    static func capture(from target: BrowserTarget, mode: CaptureMode = .selection) async throws -> CapturedContext {
         guard target.isRunning else { throw AutomationError.notRunning(app: target.name) }
 
         switch AutomationPermission.status(bundleIdentifier: target.bundleID, prompt: true) {
@@ -84,17 +96,17 @@ nonisolated enum BrowserBridge {
             break
         }
 
-        let raw = try await AppleScriptRunner.runForString(script(for: target), appName: target.name)
-        return try parse(raw, target: target)
+        let raw = try await AppleScriptRunner.runForString(script(for: target, mode: mode), appName: target.name)
+        return try parse(raw, target: target, mode: mode)
     }
 
     /// Captures from whichever browser the user was last actually looking at.
     @MainActor
-    static func captureFromFrontmost() async throws -> CapturedContext {
+    static func captureFromFrontmost(mode: CaptureMode = .selection) async throws -> CapturedContext {
         guard let target = frontmostBrowser() else {
             throw AutomationError.notRunning(app: "a supported browser")
         }
-        return try await capture(from: target)
+        return try await capture(from: target, mode: mode)
     }
 
     /// The browser to read when the user just says "capture the page".
@@ -111,7 +123,8 @@ nonisolated enum BrowserBridge {
 
     // MARK: - Scripts
 
-    private static func script(for target: BrowserTarget) -> String {
+    private static func script(for target: BrowserTarget, mode: CaptureMode) -> String {
+        let js = (mode == .fullPage ? pageTextJS : selectionJS).appleScriptLiteral
         switch target.family {
         case .safari:
             return AppleScriptRunner.timed("""
@@ -123,7 +136,7 @@ nonisolated enum BrowserBridge {
                 set theSelection to ""
                 set jsOK to "0"
                 try
-                    set theSelection to (do JavaScript \(selectionJS.appleScriptLiteral) in theDoc) as text
+                    set theSelection to (do JavaScript \(js) in theDoc) as text
                     set jsOK to "1"
                 end try
             end tell
@@ -140,7 +153,7 @@ nonisolated enum BrowserBridge {
                 set theSelection to ""
                 set jsOK to "0"
                 try
-                    set theSelection to (execute theTab javascript \(selectionJS.appleScriptLiteral)) as text
+                    set theSelection to (execute theTab javascript \(js)) as text
                     set jsOK to "1"
                 end try
             end tell
@@ -151,31 +164,47 @@ nonisolated enum BrowserBridge {
 
     // MARK: - Parsing
 
-    private static func parse(_ raw: String, target: BrowserTarget) throws -> CapturedContext {
+    private static func parse(_ raw: String, target: BrowserTarget, mode: CaptureMode) throws -> CapturedContext {
         let fields = raw.components(separatedBy: separator)
         guard fields.count >= 4 else { throw AutomationError.noResult(app: target.name) }
 
         let title = fields[0].trimmingCharacters(in: .whitespacesAndNewlines)
         let urlString = fields[1].trimmingCharacters(in: .whitespacesAndNewlines)
-        let selection = fields[2].trimmingCharacters(in: .whitespacesAndNewlines)
+        let extracted = fields[2].trimmingCharacters(in: .whitespacesAndNewlines)
         let javaScriptRan = fields[3].trimmingCharacters(in: .whitespacesAndNewlines) == "1"
 
         let url = URL(string: urlString)
+        let siteKind = SiteKind.detect(url: url)
 
         var body = ""
         var partial: String?
 
-        if !selection.isEmpty {
-            body = selection
-        } else if javaScriptRan {
-            // The page loaded and we could read it, there just wasn't a selection.
-            body = "(No text selected on this page.)"
-            partial = "No selection — only the link was captured."
-        } else {
-            body = "(Selected text unavailable.)"
-            partial = target.family == .safari
-                ? "Enable Safari → Develop → \"Allow JavaScript from Apple Events\" to capture selected text."
-                : "Enable \(target.name) → View → Developer → \"Allow JavaScript from Apple Events\" to capture selected text."
+        switch mode {
+        case .selection:
+            if !extracted.isEmpty {
+                body = extracted
+            } else if javaScriptRan {
+                body = "(No text selected on this page.)"
+                partial = "No selection — only the link was captured. Use Full page for the article text."
+            } else {
+                body = "(Selected text unavailable.)"
+                partial = target.family == .safari
+                    ? "Enable Safari → Develop → \"Allow JavaScript from Apple Events\" to capture selected text."
+                    : "Enable \(target.name) → View → Developer → \"Allow JavaScript from Apple Events\" to capture selected text."
+            }
+        case .fullPage:
+            if !extracted.isEmpty {
+                body = extracted
+                partial = siteKind == .generic ? nil : "Full page · \(siteKind.chipDetailPrefix ?? "")"
+            } else if javaScriptRan {
+                body = "(No readable text on this page.)"
+                partial = "The page returned nothing useful to capture."
+            } else {
+                body = "(Page text unavailable.)"
+                partial = target.family == .safari
+                    ? "Enable Safari → Develop → \"Allow JavaScript from Apple Events\" to capture the page."
+                    : "Enable \(target.name) → View → Developer → \"Allow JavaScript from Apple Events\" to capture the page."
+            }
         }
 
         return CapturedContext(
@@ -184,7 +213,8 @@ nonisolated enum BrowserBridge {
             detail: url?.host,
             url: url,
             body: body,
-            partial: partial
+            partial: partial,
+            siteKind: siteKind
         )
     }
 }

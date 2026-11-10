@@ -14,10 +14,16 @@ answer somewhere it still exists tomorrow.
 - **Prod | Test toggle** in the panel header (persists). Test is
   `https://test.terrierchat-nonprod.bu.edu/` — use it for CTS Ticket Search Desk / KB Desk / Morning Brief.
   An amber **TEST** badge shows whenever you are not on campus prod.
-- **Capture context** from the frontmost browser tab, the Finder selection, the clipboard, or
-  your own selection inside the chat — each one shows up as a chip you can switch in or out of
-  the prompt
-- **File answers out** to Apple Notes, Reminders, and Calendar without leaving the panel
+- **Capture context** from the frontmost browser tab (selection or full page), Mail / Outlook
+  messages, the Finder selection, the clipboard, or your own selection inside the chat — each
+  one shows up as a chip you can switch in or out of the prompt
+- **File answers out** to Apple Notes, Reminders, Calendar, or a **Mail / Outlook draft**
+  (never sends — you hit Send in the mail app)
+- **Saved prompts** (Draft a KB, Ticket update, Client reply, …) next to Copy prompt
+- **⌥Space** global hotkey to summon the panel; optional watch on a Reminders list named
+  *TerrierGPT* that turns new items into prompts
+- **Open ticket from clipboard** — paste an INC/RITM/… number, open it on
+  `bu.service-now.com`, then capture the tab
 - **Services menu** entries (*Ask / Summarize / Explain with TerrierGPT*) in every app that can
   put text on a pasteboard
 - **Shortcuts & Spotlight** actions via App Intents
@@ -64,11 +70,13 @@ CTS Recipes' `browser-actions.json`. The extension is sandboxed with one excepti
 
 | Target | Mechanism | Why |
 |---|---|---|
-| Safari, Chrome, Edge, Brave, Arc, Dia, Vivaldi, Opera, Orion, Safari TP | AppleScript, and the companion when it is connected | AppleScript reads the tab title, URL, and selection. Chrome, Edge, Brave, Vivaldi, and Arc ask the TerrierGPT Companion extension first, which can read the whole page, and use AppleScript when that bridge is down |
+| Safari, Chrome, Edge, Brave, Arc, Dia, Vivaldi, Opera, Orion, Safari TP | AppleScript, and the companion when it is connected | AppleScript reads the tab title, URL, selection, or full-page text. Chrome, Edge, Brave, Vivaldi, and Arc ask the TerrierGPT Companion extension first, which can read a ServiceNow form, and use AppleScript when that bridge is down |
+| Mail / Outlook | AppleScript | Capture the selected message; open a reply or new-message **draft** only (never Send) |
 | Finder | AppleScript | Same |
 | Notes | AppleScript | Notes has no public framework API |
-| Reminders | **EventKit** | Real permission model, typed errors, works whether or not Reminders is running |
+| Reminders | **EventKit** | File-out plus an optional watch on a list named *TerrierGPT* that queues prompts |
 | Calendar | **EventKit** | Same |
+| ServiceNow / TECTools tabs | Capture + chip label | Host detection labels the chip and suggests a triage instruction; writes stay in the Companion |
 | Any app with selectable text | **Services menu** | No scripting, no Automation permission, works everywhere |
 | Shortcuts / Spotlight | **App Intents** | Typed parameters, no `.sdef`, no Automation prompt to script *this* app |
 
@@ -94,8 +102,8 @@ Two details worth knowing:
 
 On first use macOS will ask for:
 
-- **Automation** → Safari / Chrome / Finder / Notes, per app, on first capture
-- **Reminders** and **Calendars** → on first file-out
+- **Automation** → Safari / Chrome / Finder / Notes / Mail / Outlook, per app, on first use
+- **Reminders** and **Calendars** → on first file-out (and again if you turn on the Reminders watch)
 
 If you deny one by accident, the failure toast has an *Open Settings* button that goes to the
 exact pane. `AUTOMATION_APPLE_EVENTS = YES` is set on the target, which is required for Apple
@@ -105,6 +113,7 @@ Events under the hardened runtime.
 
 | Shortcut | Action |
 |---|---|
+| ⌥Space | Summon the panel (toggle in ⋯ ▸ Automation) |
 | ⌘R | Reload |
 | ⌘[ / ⌘] | Back / forward |
 | ⇧⌘B | Capture the frontmost browser page |
@@ -289,29 +298,23 @@ features read.
 - Finder captures cap inlined file contents at 120 KB and only read text-ish UTIs, rather than
   silently truncating a large binary into a prompt
 
+## Who does what
+
+| Job | Where |
+|---|---|
+| Capture Mac context, panel chat, Notes / Reminders / Calendar / email **drafts** | This menu-bar app |
+| Read ServiceNow DOM, Post reply / work note (with your click) | TerrierGPT Companion |
+| Skill chains, inbox, `browser-actions.json` | CTS Recipes |
+
 ## Proposed next steps
 
-Ordered by value per unit of work. None of these are built yet.
+Still open (lower priority — intentionally not in this app):
 
-1. **Global hotkey to summon the panel** (⌥Space or similar). The one thing that would make
-   capture-from-anywhere feel instant. Needs `RegisterEventHotKey` or a `CGEventTap`; the
-   latter wants Accessibility permission, the former doesn't.
-2. **Mail and Messages capture.** Both script cleanly (`selection` in Mail, `text` of the
-   selected chat in Messages) and slot straight into the existing `CapturedContext` model —
-   roughly one new bridge file each.
-3. **Reading the page, not just the selection.** Today a browser capture is title + URL +
-   selection. Running Safari's Reader extraction (or a small Readability script through
-   `do JavaScript`) would let you capture a whole article without selecting it first.
-4. **A saved-prompt library.** Capture chips plus a named instruction ("draft a KB article from
-   this", "summarize for a ticket update") is most of a personal prompt library already; it
-   needs a store and a picker in the dock.
-5. **Round-trip from Reminders.** Right now context flows outward. A "TerrierGPT" reminders list
-   that the app watches, turning each new item into a queued prompt, would close the loop.
-6. **Quick Look–style transient panel** for the Services entries, so *Ask TerrierGPT* on selected
+1. **Quick Look–style transient panel** for the Services entries, so *Ask TerrierGPT* on selected
    text can answer inline without opening the full panel.
-7. **A `.sdef` scripting dictionary**, if you ever want to drive this app *from* AppleScript
-   rather than the other way round. App Intents cover Shortcuts and Spotlight already, so this
-   is only worth it for an existing AppleScript-only workflow.
+2. **Messages capture**, if Mail/Outlook aren't enough for a given workflow.
+3. **A `.sdef` scripting dictionary** — only if an existing AppleScript-only workflow needs it;
+   App Intents already cover Shortcuts and Spotlight.
 
 ## Requirements
 
@@ -358,18 +361,17 @@ TerrierGPTMenu/
 │   ├── Auth/AuthManager.swift            # Session phases, clipboard prompt, shared actions
 │   ├── Automation/
 │   │   ├── AppleScriptRunner.swift       # Off-main AppleScript, permissions, escaping
-│   │   ├── BrowserBridge.swift           # Frontmost tab across 14 browsers
+│   │   ├── BrowserBridge.swift           # Frontmost tab across 14 browsers (+ full page)
+│   │   ├── MailBridge.swift / OutlookBridge.swift  # Capture + draft (never send)
 │   │   ├── FinderBridge.swift            # Finder selection + safe file inlining
 │   │   ├── AppleAppsBridge.swift         # Notes (AppleScript) + Reminders/Calendar (EventKit)
+│   │   ├── SiteKind.swift                # ServiceNow / TECTools detection + ticket URLs
+│   │   ├── PromptLibrary.swift           # Saved instructions
+│   │   ├── GlobalHotKey.swift            # ⌥Space summons the panel
+│   │   ├── ReminderPromptWatcher.swift   # TerrierGPT Reminders list → prompt
 │   │   ├── CapturedContext.swift         # Capture model + prompt composition
 │   │   ├── CaptureCoordinator.swift      # Capture/file state machine, toasts
 │   │   └── FrontmostAppTracker.swift     # "Which app was I in before this panel opened?"
-│   ├── Chains/
-│   │   ├── Recipe.swift                  # Recipe model, loading, seeded examples
-│   │   ├── AgentAdapter.swift            # claude / grok / command lines; output parsing; process runner
-│   │   ├── ChainRunner.swift             # Runs a recipe step by step, gates, run folders
-│   │   ├── Inbox.swift                   # Inbox routing, folder watcher, launchd agent
-│   │   └── RunHistory.swift              # Reads past runs back from run.json
 │   ├── Design/TGDesign.swift             # Glass tokens, button styles, motion, Reduce Motion
 │   ├── Handoff/
 │   │   ├── HandoffExtractor.swift        # Find the answer's JSON block (pure, testable)
@@ -380,11 +382,9 @@ TerrierGPTMenu/
 │   ├── Services/TerrierServices.swift    # Services menu provider
 │   └── Views/
 │       ├── WebView.swift                 # WKWebView, navigation policy, dialogs, downloads
-│       ├── PanelHeader.swift
-│       ├── ContextTray.swift
-│       ├── ActionDock.swift              # Dock + Handoff/chain menu
-│       ├── RunStrip.swift                # Chain progress above the dock
-│       ├── RunHistoryView.swift          # Run history popover
+│       ├── PanelHeader.swift             # Capture menu (browser, mail, ticket…)
+│       ├── ContextTray.swift             # Chips + Prompt library + Copy prompt
+│       ├── ActionDock.swift              # Notes / Reminders / Calendar / Draft / Hand off
 │       ├── SessionPill.swift
 │       ├── ToastView.swift
 │       └── AmbientBackdrop.swift

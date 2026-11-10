@@ -13,6 +13,8 @@ nonisolated struct CapturedContext: Identifiable, Equatable, Hashable {
         case finder
         case clipboard
         case answer
+        case mail
+        case outlook
 
         var symbol: String {
             switch self {
@@ -20,6 +22,8 @@ nonisolated struct CapturedContext: Identifiable, Equatable, Hashable {
             case .finder: return "folder"
             case .clipboard: return "doc.on.clipboard"
             case .answer: return "text.quote"
+            case .mail: return "envelope"
+            case .outlook: return "envelope.badge"
             }
         }
 
@@ -29,6 +33,8 @@ nonisolated struct CapturedContext: Identifiable, Equatable, Hashable {
             case .finder: return "Finder"
             case .clipboard: return "Clipboard"
             case .answer: return "TerrierGPT"
+            case .mail: return "Mail"
+            case .outlook: return "Outlook"
             }
         }
 
@@ -38,6 +44,8 @@ nonisolated struct CapturedContext: Identifiable, Equatable, Hashable {
             case .finder: return .cyan
             case .clipboard: return .purple
             case .answer: return TG.scarlet
+            case .mail: return .blue
+            case .outlook: return TG.azure
             }
         }
     }
@@ -56,6 +64,8 @@ nonisolated struct CapturedContext: Identifiable, Equatable, Hashable {
     var isEnabled: Bool
     /// Set when we could read the page but not its selection, so the UI can explain why.
     var partial: String?
+    /// ServiceNow / TECTools / generic — drives chip labelling and suggested instructions.
+    var siteKind: SiteKind
 
     let capturedAt: Date
 
@@ -68,16 +78,30 @@ nonisolated struct CapturedContext: Identifiable, Equatable, Hashable {
         body: String,
         isEnabled: Bool = true,
         partial: String? = nil,
+        siteKind: SiteKind? = nil,
         capturedAt: Date = Date()
     ) {
         self.id = id
         self.source = source
         self.title = title
-        self.detail = detail
         self.url = url
         self.body = body
         self.isEnabled = isEnabled
         self.partial = partial
+        let resolvedKind = siteKind ?? SiteKind.detect(url: url)
+        self.siteKind = resolvedKind
+        // Prefer an explicit site label when the caller didn't pass a richer detail.
+        if let prefix = resolvedKind.chipDetailPrefix {
+            if let detail, !detail.isEmpty, !detail.localizedCaseInsensitiveContains(prefix) {
+                self.detail = "\(prefix) · \(detail)"
+            } else if detail == nil || detail?.isEmpty == true {
+                self.detail = prefix
+            } else {
+                self.detail = detail
+            }
+        } else {
+            self.detail = detail
+        }
         self.capturedAt = capturedAt
     }
 

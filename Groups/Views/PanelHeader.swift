@@ -112,6 +112,12 @@ struct PanelHeader: View {
                     Label("Page in \(browser)", systemImage: "safari")
                 }
                 .keyboardShortcut("b", modifiers: [.command, .shift])
+
+                Button {
+                    Task { await coordinator.captureBrowser(mode: .fullPage) }
+                } label: {
+                    Label("Full page in \(browser)", systemImage: "doc.richtext")
+                }
             }
 
             Button {
@@ -134,12 +140,35 @@ struct PanelHeader: View {
                 Label("Selection in this chat", systemImage: "text.quote")
             }
 
+            Divider()
+
+            Button {
+                Task { await coordinator.captureMail() }
+            } label: {
+                Label("Mail message", systemImage: "envelope")
+            }
+
+            Button {
+                Task { await coordinator.captureOutlook() }
+            } label: {
+                Label("Outlook message", systemImage: "envelope.badge")
+            }
+
+            Button {
+                Task { await coordinator.openTicketAndCapture() }
+            } label: {
+                Label("Open ticket from clipboard…", systemImage: "ticket")
+            }
+
             if !BrowserTarget.running.isEmpty {
                 Divider()
                 Menu("From another browser") {
                     ForEach(BrowserTarget.running) { target in
                         Button(target.name) {
                             Task { await coordinator.captureBrowser(target) }
+                        }
+                        Button("Full page — \(target.name)") {
+                            Task { await coordinator.captureBrowser(target, mode: .fullPage) }
                         }
                     }
                 }

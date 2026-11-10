@@ -386,7 +386,7 @@
 				INFOPLIST_KEY_CFBundleDisplayName = TerrierGPTMenu;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
 				INFOPLIST_KEY_LSUIElement = YES;
-				INFOPLIST_KEY_NSAppleEventsUsageDescription = "TerrierGPT uses automation to read the page you are looking at in your browser, the files you have selected in the Finder, and to file answers into Apple Notes.";
+				INFOPLIST_KEY_NSAppleEventsUsageDescription = "TerrierGPT uses automation to read the page you are looking at in your browser, selected Mail and Outlook messages, Finder selections, and to file answers into Apple Notes or open email drafts.";
 				INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription = "TerrierGPT creates calendar events from answers you choose to schedule.";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "TerrierGPT needs the microphone only if you use voice input on the TerrierGPT website.";
 				INFOPLIST_KEY_NSRemindersFullAccessUsageDescription = "TerrierGPT creates reminders from answers you choose to follow up on.";
@@ -436,7 +436,7 @@
 				INFOPLIST_KEY_CFBundleDisplayName = TerrierGPTMenu;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
 				INFOPLIST_KEY_LSUIElement = YES;
-				INFOPLIST_KEY_NSAppleEventsUsageDescription = "TerrierGPT uses automation to read the page you are looking at in your browser, the files you have selected in the Finder, and to file answers into Apple Notes.";
+				INFOPLIST_KEY_NSAppleEventsUsageDescription = "TerrierGPT uses automation to read the page you are looking at in your browser, selected Mail and Outlook messages, Finder selections, and to file answers into Apple Notes or open email drafts.";
 				INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription = "TerrierGPT creates calendar events from answers you choose to schedule.";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "TerrierGPT needs the microphone only if you use voice input on the TerrierGPT website.";
 				INFOPLIST_KEY_NSRemindersFullAccessUsageDescription = "TerrierGPT creates reminders from answers you choose to follow up on.";
