@@ -93,11 +93,15 @@ final class CaptureCoordinator: ObservableObject {
 
     // MARK: - Capturing
 
-    func captureBrowser(_ target: BrowserTarget? = nil) async {
+    func captureBrowser(_ target: BrowserTarget? = nil, mode: BrowserBridge.CaptureMode = .selection) async {
         await perform {
             let resolved = target ?? BrowserBridge.frontmostBrowser()
-            if let resolved, let context = await CompanionBridge.capture(from: resolved) {
+            // Companion already returns the full page / ticket form — prefer it when the bridge
+            // is up. Fall through to AppleScript (selection or full-page JS).
+            if let resolved,
+               let context = await CompanionBridge.capture(from: resolved) {
                 self.add(context)
+                self.applySuggestedInstruction(for: context)
                 return Toast(
                     kind: context.partial == nil ? .success : .info,
                     title: "Captured from \(context.source.label)",
@@ -105,14 +109,16 @@ final class CaptureCoordinator: ObservableObject {
                 )
             }
             let context = try await {
-                if let target { return try await BrowserBridge.capture(from: target) }
-                return try await BrowserBridge.captureFromFrontmost()
+                if let target { return try await BrowserBridge.capture(from: target, mode: mode) }
+                return try await BrowserBridge.captureFromFrontmost(mode: mode)
             }()
             self.add(context)
+            self.applySuggestedInstruction(for: context)
+            let modeLabel = mode == .fullPage ? "Full page · " : ""
             return Toast(
                 kind: context.partial == nil ? .success : .info,
                 title: "Captured from \(context.source.label)",
-                detail: context.partial ?? context.title
+                detail: context.partial ?? "\(modeLabel)\(context.title)"
             )
         }
     }
@@ -129,6 +135,22 @@ final class CaptureCoordinator: ObservableObject {
         }
     }
 
+    func captureMail() async {
+        await perform {
+            let context = try await MailBridge.captureSelection()
+            self.add(context)
+            return Toast(kind: .success, title: "Captured from Mail", detail: context.title)
+        }
+    }
+
+    func captureOutlook() async {
+        await perform {
+            let context = try await OutlookBridge.captureSelection()
+            self.add(context)
+            return Toast(kind: .success, title: "Captured from Outlook", detail: context.title)
+        }
+    }
+
     func captureClipboard() {
         guard let context = ClipboardPrompt.captureFromPasteboard() else {
             show(Toast(kind: .info, title: "Clipboard is empty"))
@@ -136,6 +158,33 @@ final class CaptureCoordinator: ObservableObject {
         }
         add(context)
         show(Toast(kind: .success, title: "Captured clipboard", detail: context.detail))
+    }
+
+    /// Opens a ServiceNow record in the default browser, waits for the tab, then captures it.
+    func openTicketAndCapture(from text: String? = nil) async {
+        let source = text
+            ?? NSPasteboard.general.string(forType: .string)
+            ?? ""
+        guard let ticket = SiteKind.ticketNumber(in: source) else {
+            show(Toast(
+                kind: .info,
+                title: "No ticket number found",
+                detail: "Copy an INC, RITM, SCTASK, CHG, PRB, or KB number, then try again."
+            ))
+            return
+        }
+        let url = ticket.openURL()
+        NSWorkspace.shared.open(url)
+        show(Toast(
+            kind: .info,
+            title: "Opening \(ticket.display)",
+            detail: "Capturing once the tab settles…"
+        ))
+        // Give SSO / the form a moment. Prefer the most recently active browser (the one that
+        // just received the URL) over FrontmostAppTracker, which still points at whoever we
+        // left when the panel opened.
+        try? await Task.sleep(for: .seconds(2.5))
+        await captureBrowser(BrowserTarget.running.first, mode: .fullPage)
     }
 
     /// Captures whatever the user has selected inside the TerrierGPT page.
@@ -224,6 +273,86 @@ final class CaptureCoordinator: ObservableObject {
         }
         let prompt = composedPrompt
         return ("TerrierGPT prompt", prompt, contexts.first?.url)
+    }
+
+    /// Opens a Mail reply draft to the selected message. Never sends.
+    func draftMailReply() async {
+        await perform {
+            let material = await self.materialToFile()
+            guard !material.body.isEmpty else { throw AppleAppsError.emptyContent }
+            try await MailBridge.draftReply(body: material.body)
+            return Toast(
+                kind: .success,
+                title: "Mail draft opened",
+                detail: "Review it, then send from Mail.",
+                action: .openApp(URL(string: "message://")!)
+            )
+        }
+    }
+
+    /// Opens a new Mail message draft (not a reply). Never sends.
+    func draftMailNew() async {
+        await perform {
+            let material = await self.materialToFile()
+            guard !material.body.isEmpty else { throw AppleAppsError.emptyContent }
+            try await MailBridge.draftNewMessage(
+                subject: Self.shortTitle(from: material.title, fallbackBody: material.body),
+                body: material.body
+            )
+            return Toast(
+                kind: .success,
+                title: "Mail draft opened",
+                detail: "Review it, then send from Mail.",
+                action: .openApp(URL(string: "message://")!)
+            )
+        }
+    }
+
+    func draftOutlookReply() async {
+        await perform {
+            let material = await self.materialToFile()
+            guard !material.body.isEmpty else { throw AppleAppsError.emptyContent }
+            try await OutlookBridge.draftReply(body: material.body)
+            return Toast(
+                kind: .success,
+                title: "Outlook draft opened",
+                detail: "Review it, then send from Outlook."
+            )
+        }
+    }
+
+    func draftOutlookNew() async {
+        await perform {
+            let material = await self.materialToFile()
+            guard !material.body.isEmpty else { throw AppleAppsError.emptyContent }
+            try await OutlookBridge.draftNewMessage(
+                subject: Self.shortTitle(from: material.title, fallbackBody: material.body),
+                body: material.body
+            )
+            return Toast(
+                kind: .success,
+                title: "Outlook draft opened",
+                detail: "Review it, then send from Outlook."
+            )
+        }
+    }
+
+    /// Applies a saved (or site-suggested) instruction without wiping captures.
+    func applyPrompt(_ body: String) {
+        let trimmed = body.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        instruction = trimmed
+        show(Toast(kind: .success, title: "Prompt set", detail: "Copy prompt, then paste into the chat."))
+    }
+
+    /// When a ServiceNow / TECTools page lands and the instruction is still the default, offer
+    /// the site-specific one so the first paste is already useful.
+    private func applySuggestedInstruction(for context: CapturedContext) {
+        guard let suggested = context.siteKind.suggestedInstruction else { return }
+        let current = instruction.trimmingCharacters(in: .whitespacesAndNewlines)
+        if current.isEmpty || current == PromptComposer.defaultInstruction {
+            instruction = suggested
+        }
     }
 
     func sendToNotes(append: Bool = false) async {

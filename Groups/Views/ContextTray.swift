@@ -8,6 +8,7 @@ import SwiftUI
 struct ContextTray: View {
 
     @ObservedObject var coordinator: CaptureCoordinator
+    @ObservedObject private var prompts = PromptLibrary.shared
     @Namespace private var glass
 
     var body: some View {
@@ -58,6 +59,8 @@ struct ContextTray: View {
 
             Spacer()
 
+            promptMenu
+
             // Lives with the captures it copies, not in the dock: with nothing captured it
             // would only copy the default instruction.
             Button {
@@ -78,6 +81,35 @@ struct ContextTray: View {
                 .help("Remove every capture")
         }
         .padding(.horizontal, TG.Space.regular + TG.Space.tight)
+    }
+
+    /// Named instructions — one menu, no extra chrome on the dock.
+    private var promptMenu: some View {
+        Menu {
+            ForEach(prompts.prompts) { prompt in
+                Button(prompt.title) {
+                    coordinator.applyPrompt(prompt.body)
+                }
+            }
+            Divider()
+            let current = coordinator.instruction.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !current.isEmpty, current != PromptComposer.defaultInstruction {
+                Button("Save current instruction…") {
+                    let title = String(current.prefix(40))
+                    prompts.add(title: title, body: current)
+                    coordinator.show(Toast(kind: .success, title: "Prompt saved", detail: title))
+                }
+            }
+            Button("Reset instruction") {
+                coordinator.instruction = PromptComposer.defaultInstruction
+            }
+        } label: {
+            Label("Prompt", systemImage: "text.badge.star")
+        }
+        .menuStyle(.borderlessButton)
+        .font(.system(size: 10, weight: .semibold))
+        .foregroundStyle(TG.violet)
+        .help("Pick a saved instruction for this capture")
     }
 }
 

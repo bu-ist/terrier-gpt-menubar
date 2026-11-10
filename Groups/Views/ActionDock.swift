@@ -57,6 +57,8 @@ struct ActionDock: View {
                 .help("Calendar — turn the answer into an event")
                 .accessibilityLabel("Save to Calendar")
 
+                draftMenu
+
                 Spacer(minLength: TG.Space.snug)
 
                 Button {
@@ -111,6 +113,36 @@ struct ActionDock: View {
     private var noteTitleHint: String {
         let resolved = pageTitle.isEmpty ? "TerrierGPT" : pageTitle
         return resolved.count > 28 ? String(resolved.prefix(28)) + "…" : resolved
+    }
+
+    /// Drafts only — Mail / Outlook open a compose window; the person hits Send there.
+    private var draftMenu: some View {
+        Menu {
+            Section("Mail") {
+                Button("Reply draft") {
+                    Task { await coordinator.draftMailReply() }
+                }
+                Button("New message draft") {
+                    Task { await coordinator.draftMailNew() }
+                }
+            }
+            Section("Outlook") {
+                Button("Reply draft") {
+                    Task { await coordinator.draftOutlookReply() }
+                }
+                Button("New message draft") {
+                    Task { await coordinator.draftOutlookNew() }
+                }
+            }
+        } label: {
+            Image(systemName: "envelope")
+        }
+        .menuStyle(.button)
+        .buttonStyle(.glassCircle(tint: TG.azure, id: "draft", in: glass))
+        .menuIndicator(.hidden)
+        .fixedSize()
+        .help("Draft in Mail or Outlook — never sends")
+        .accessibilityLabel("Draft email")
     }
 }
 
@@ -319,6 +351,19 @@ struct AutomationMenu: View {
                             Button(contract) { coordinator.copyHandoffRequest(contract: contract) }
                         }
                     }
+                }
+            }
+
+            Section("Mac") {
+                Button(GlobalHotKey.shared.isEnabled ? "Disable ⌥Space hotkey" : "Enable ⌥Space hotkey") {
+                    GlobalHotKey.shared.setEnabled(!GlobalHotKey.shared.isEnabled)
+                }
+                Button(
+                    ReminderPromptWatcher.shared.isEnabled
+                        ? "Stop watching Reminders “TerrierGPT”"
+                        : "Watch Reminders “TerrierGPT” list"
+                ) {
+                    ReminderPromptWatcher.shared.setEnabled(!ReminderPromptWatcher.shared.isEnabled)
                 }
             }
 

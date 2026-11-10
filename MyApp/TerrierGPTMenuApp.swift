@@ -35,6 +35,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Registers the Chrome native host the companion uses to write handoffs.
         CompanionBridge.install()
 
+        // ⌥Space summons the panel without Accessibility permission.
+        GlobalHotKey.shared.start()
+        // Opt-in round-trip: incomplete items in the "TerrierGPT" Reminders list → prompt.
+        ReminderPromptWatcher.shared.startIfEnabled()
     }
 
     /// `terriergpt://handoff|ask` (and `run|inbox`, forwarded to CTS Recipes) — AppleScript, `open`, Raycast.
