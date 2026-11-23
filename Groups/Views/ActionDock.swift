@@ -316,6 +316,13 @@ struct AutomationMenu: View {
 
     @ObservedObject var coordinator: CaptureCoordinator
 
+    /// Says when the chord is on but another app holds it, instead of claiming it works.
+    static var hotKeyMenuTitle: String {
+        let hotKey = GlobalHotKey.shared
+        if !hotKey.isEnabled { return "Enable ⌥Space hotkey" }
+        return hotKey.isRegistered ? "Disable ⌥Space hotkey" : "Disable ⌥Space hotkey (in use by another app)"
+    }
+
     var body: some View {
         Menu {
             Section("CTS Recipes") {
@@ -355,7 +362,7 @@ struct AutomationMenu: View {
             }
 
             Section("Mac") {
-                Button(GlobalHotKey.shared.isEnabled ? "Disable ⌥Space hotkey" : "Enable ⌥Space hotkey") {
+                Button(Self.hotKeyMenuTitle) {
                     GlobalHotKey.shared.setEnabled(!GlobalHotKey.shared.isEnabled)
                 }
                 Button(

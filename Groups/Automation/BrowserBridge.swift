@@ -43,7 +43,7 @@ nonisolated struct BrowserTarget: Identifiable, Equatable {
         !NSRunningApplication.runningApplications(withBundleIdentifier: bundleID).isEmpty
     }
 
-    /// Running browsers, most-recently-active first.
+    /// Running browsers, in launch order (`runningApplications` does not track recent use).
     static var running: [BrowserTarget] {
         let activeOrder = NSWorkspace.shared.runningApplications
             .compactMap(\.bundleIdentifier)

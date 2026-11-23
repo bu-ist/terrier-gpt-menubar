@@ -37,10 +37,10 @@ Built against the macOS 27 SDK using Liquid Glass.
 | Piece | What it does |
 |---|---|
 | Header | Name, a status dot, and three controls: Back/Forward (only once there's history), Capture, and ⋯. Reload, Open in Browser, the Prod/Test instance, Launch at Login, and **Automation** (JSON handoffs, Send to CTS Recipes, folders) live in ⋯ |
-| Session status | A green dot when signed in; a labelled pill (Connecting / Signing in / Signed out) only when something needs attention |
+| Session status | A green dot when signed in; a labelled pill (Connecting / Signing in / Signed out / Offline) only when something needs attention; offline also covers the page with *Try Again* |
 | Context tray | Capture chips, tinted per source, morphing in and out via `glassEffectID`. **Copy prompt** (⇧⌘C) lives here, next to the captures it copies |
 | Action dock | *Save to* Notes · Reminders · Calendar (icon buttons with tooltips) and one primary **Hand off** button |
-| Toast | Floating glass, replacing the old inline status strip that reflowed the page every time it appeared |
+| Toast | Floating glass, replacing the old inline status strip that reflowed the page every time it appeared. Stays while hovered, longer for failures and actions; × to dismiss; read aloud by VoiceOver |
 | Backdrop | A very faint animated `MeshGradient`. Glass is a lensing material — it has nothing to show unless something moves behind it |
 
 Motion comes from one vocabulary in `TG.Motion` (`snap` / `morph` / `drift` / `ambient`) so

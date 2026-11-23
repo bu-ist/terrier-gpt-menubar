@@ -87,12 +87,14 @@ struct PanelHeader: View {
         Group {
             if webModel.canGoBack || webModel.canGoForward {
                 Button { webModel.goBack() } label: { Image(systemName: "chevron.backward") }
+                    .accessibilityLabel("Back")
                     .buttonStyle(.glassCircle(tint: TG.azure, id: "back", in: glass))
                     .disabled(!webModel.canGoBack)
                     .keyboardShortcut("[", modifiers: .command)
                     .help("Back (⌘[)")
 
                 Button { webModel.goForward() } label: { Image(systemName: "chevron.forward") }
+                    .accessibilityLabel("Forward")
                     .buttonStyle(.glassCircle(tint: TG.azure, id: "forward", in: glass))
                     .disabled(!webModel.canGoForward)
                     .keyboardShortcut("]", modifiers: .command)
@@ -174,15 +176,19 @@ struct PanelHeader: View {
                 }
             }
         } label: {
-            Image(systemName: coordinator.isWorking ? "ellipsis" : "plus.viewfinder")
-                .contentTransition(.symbolEffect(.replace))
+            if coordinator.isWorking {
+                // Not "ellipsis": that glyph is the More menu next to it.
+                ProgressView().controlSize(.small)
+            } else {
+                Image(systemName: "plus.viewfinder")
+            }
         }
         .menuStyle(.button)
         .buttonStyle(.glassCircle(tint: TG.scarlet, prominent: coordinator.hasContext, id: "capture", in: glass))
         .menuIndicator(.hidden)
         .fixedSize()
-        .help("Capture context from another app")
-        .accessibilityLabel("Capture context")
+        .help(coordinator.isWorking ? "Working…" : "Capture context from another app")
+        .accessibilityLabel(coordinator.isWorking ? "Capture context, working" : "Capture context")
     }
 
     private var overflowMenu: some View {
@@ -212,7 +218,7 @@ struct PanelHeader: View {
             // Prod campus vs AIDA nonprod. Persistent; reloads home on change.
             Picker(selection: instanceBinding) {
                 ForEach(TerrierInstance.allCases) { item in
-                    Text(item == .nonprod ? "Test (nonprod)" : "Campus").tag(item)
+                    Text(item.title).tag(item)
                 }
             } label: {
                 Label("Instance", systemImage: "server.rack")
@@ -230,13 +236,12 @@ struct PanelHeader: View {
                 Label("Permissions…", systemImage: "lock.shield")
             }
 
-            if auth.isAuthenticated {
-                Divider()
-                Button(role: .destructive) {
-                    Task { await auth.logout() }
-                } label: {
-                    Label("Sign Out", systemImage: "rectangle.portrait.and.arrow.right")
-                }
+            // Always offered: a session that broke half-way still needs a way to start clean.
+            Divider()
+            Button(role: .destructive) {
+                Task { await auth.logout() }
+            } label: {
+                Label(auth.isAuthenticated ? "Sign Out" : "Clear Session", systemImage: "rectangle.portrait.and.arrow.right")
             }
 
             Divider()

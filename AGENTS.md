@@ -35,8 +35,8 @@ The Safari phase needs Node and the companion cloned next to this repo
    Do not hardcode another user's home path.
 3. **Handoff envelopes are a contract** shared with CTS Recipes and the Chrome companion.
    Change all sides together.
-4. **Motion goes through `TG.Motion` and `.tgAnimation`**, which honors Reduce Motion. No ad hoc
-   `withAnimation` on new surfaces.
+4. **Motion goes through `TG.Motion`**: `.tgAnimation` in views, `TG.animate {}` for state changes
+   outside a view. Both honor Reduce Motion. No raw `withAnimation`.
 5. **Never type into the chat box over AppleScript.** Context goes to the clipboard or a handoff.
 6. **Mail / Outlook drafts only — never Send.** ServiceNow writes stay in the Companion (user click).
 7. **Signing:** do not commit a personal Team ID, provisioning profiles, or `xcuserdata/`.
@@ -48,3 +48,8 @@ The Safari phase needs Node and the companion cloned next to this repo
 
 Team repo (`bu-ist`): work on a branch and open a PR. Keep the README's panel and integration
 tables in sync with behavior changes.
+
+## Lessons
+
+- Single-page apps (LibreChat) change the URL without any `WKNavigationDelegate` callback. Anything
+  that must track the current page (session state, "Open in Browser") observes `WKWebView.url`.

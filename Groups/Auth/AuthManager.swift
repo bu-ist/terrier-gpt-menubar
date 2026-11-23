@@ -13,6 +13,8 @@ enum SessionPhase: Equatable {
     case authenticating
     /// Settled on the TerrierGPT app host after login.
     case signedIn
+    /// The last main-frame load failed at the network level (offline, VPN, DNS, server down).
+    case unreachable
 }
 
 /// Which TerrierGPT host the panel loads. Campus prod vs AIDA nonprod (Ticket Search Desk, KB Desk).
@@ -166,10 +168,23 @@ final class AuthManager: ObservableObject {
         if nsError.domain == NSURLErrorDomain && nsError.code == NSURLErrorCancelled {
             return
         }
+        // Only network failures mean "can't reach TerrierGPT". WebKit's own errors (a load
+        // that turned into a download, a navigation we cancelled by policy) are not outages.
+        if nsError.domain == NSURLErrorDomain {
+            apply(phase: .unreachable)
+            return
+        }
         if phase == .loading || phase == .authenticating {
             apply(phase: .signedOut)
         }
         isLoading = false
+    }
+
+    /// After a failed load: start over from the instance's home page.
+    func retry() {
+        apply(phase: .loading)
+        pendingHomeURL = nil
+        loadHomeToken = UUID()
     }
 
     // MARK: - Actions (UI + Shortcuts)

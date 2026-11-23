@@ -1,4 +1,5 @@
 import SwiftUI
+import AppKit
 
 /// Design tokens and materials for the macOS 27 "Liquid Glass" chrome.
 ///
@@ -62,11 +63,11 @@ nonisolated enum TG {
     /// One spring vocabulary, so nothing in the panel moves "differently" from anything else.
     nonisolated enum Motion {
         /// Controls reacting to a direct hit: presses, toggles, chip taps.
-        static let snap = Animation.spring(response: 0.26, dampingFraction: 0.72)
+        static let snap = Animation.spring(response: 0.20, dampingFraction: 0.80)
         /// Layout changes: trays opening, glass shapes appearing and leaving.
-        static let morph = Animation.spring(response: 0.42, dampingFraction: 0.80)
+        static let morph = Animation.spring(response: 0.24, dampingFraction: 0.86)
         /// Things arriving or leaving on their own: toasts, status lines.
-        static let drift = Animation.spring(response: 0.55, dampingFraction: 0.86)
+        static let drift = Animation.spring(response: 0.25, dampingFraction: 0.90)
         /// Continuous ambient motion (breathing dots, shimmer).
         static let ambient = Animation.easeInOut(duration: 1.6).repeatForever(autoreverses: true)
     }
@@ -340,5 +341,15 @@ struct RespectfulAnimation<V: Equatable>: ViewModifier {
 extension View {
     func tgAnimation<V: Equatable>(_ animation: Animation, value: V) -> some View {
         modifier(RespectfulAnimation(animation: animation, value: value))
+    }
+}
+
+extension TG {
+    /// `withAnimation` for state changes made outside a view, honoring Reduce Motion the same
+    /// way `tgAnimation` does inside one.
+    @MainActor
+    static func animate(_ animation: Animation, _ changes: () -> Void) {
+        let calm = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+        withAnimation(calm ? nil : animation, changes)
     }
 }

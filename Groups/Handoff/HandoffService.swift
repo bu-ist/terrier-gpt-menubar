@@ -28,6 +28,7 @@ enum HandoffService {
     ///   - copyToClipboard: Also put the envelope JSON on the clipboard, for pasting by hand.
     static func export(contract: String?, copyToClipboard: Bool, mode: Mode = .smart) async throws -> HandoffStore.Saved {
         let contract = contract?.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty
+        guard AuthManager.shared.phase == .signedIn else { throw HandoffError.notSignedIn }
         guard let webModel = CaptureCoordinator.shared.webModel,
               let sources = await webModel.handoffSources() else {
             throw HandoffError.noPage
@@ -237,6 +238,7 @@ enum CTSRecipesApp {
 
 enum HandoffError: LocalizedError {
     case noPage
+    case notSignedIn
     case emptyPage
     case nothingFound(contract: String?, hadSelection: Bool)
 
@@ -244,6 +246,8 @@ enum HandoffError: LocalizedError {
         switch self {
         case .noPage:
             return "TerrierGPT isn't open"
+        case .notSignedIn:
+            return "Sign in to TerrierGPT first"
         case .emptyPage:
             return "The TerrierGPT page has no text yet"
         case .nothingFound(let contract, let hadSelection):
@@ -254,6 +258,8 @@ enum HandoffError: LocalizedError {
 
     var recoverySuggestion: String? {
         switch self {
+        case .notSignedIn:
+            return "The panel is showing a sign-in or error page, not a conversation."
         case .noPage, .emptyPage:
             return "Open the panel on the conversation you want to hand off."
         case .nothingFound(_, true):

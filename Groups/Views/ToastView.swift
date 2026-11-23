@@ -9,6 +9,7 @@ struct ToastView: View {
     let toast: Toast
     let onAction: (Toast.Action) -> Void
     let onDismiss: () -> Void
+    var onHover: (Bool) -> Void = { _ in }
 
     var body: some View {
         HStack(spacing: TG.Space.snug) {
@@ -35,15 +36,24 @@ struct ToastView: View {
                     .buttonStyle(.glassPill(tint: toast.kind.tint))
                     .controlSize(.small)
             }
+
+            Button(action: onDismiss) {
+                Image(systemName: "xmark")
+                    .font(.system(size: 9, weight: .bold))
+                    .foregroundStyle(.secondary)
+                    .padding(4)
+                    .contentShape(.circle)
+            }
+            .buttonStyle(.plain)
+            .help("Dismiss")
+            .accessibilityLabel("Dismiss")
         }
         .padding(.horizontal, TG.Space.regular)
         .padding(.vertical, TG.Space.snug)
         .frame(maxWidth: 440, alignment: .leading)
         .tgGlass(.rect(cornerRadius: TG.Radius.card, style: .continuous), tint: toast.kind.tint)
         .contentShape(.rect(cornerRadius: TG.Radius.card, style: .continuous))
-        .onTapGesture(perform: onDismiss)
-        .accessibilityElement(children: .combine)
-        .accessibilityAddTraits(.isStaticText)
-        .help("Click to dismiss")
+        .onHover(perform: onHover)
+        .accessibilityElement(children: .contain)
     }
 }

@@ -77,6 +77,14 @@ final class WebViewModel: ObservableObject {
                     self.canGoForward = value
                 }
             },
+            // In-app routing (a chat switch, or LibreChat sending an expired session to
+            // /login) changes the URL without any navigation-delegate callback.
+            webView.observe(\.url, options: [.new]) { view, _ in
+                let value = view.url
+                Task { @MainActor in
+                    AuthManager.shared.updateFromNavigation(url: value)
+                }
+            },
             webView.observe(\.title, options: [.new]) { [weak self] view, _ in
                 let value = view.title ?? ""
                 guard let self else { return }
@@ -423,7 +431,10 @@ struct WebView: NSViewRepresentable {
             decidePolicyFor navigationResponse: WKNavigationResponse,
             decisionHandler: @escaping (WKNavigationResponsePolicy) -> Void
         ) {
-            if navigationResponse.isForMainFrame, let url = navigationResponse.response.url {
+            // A response that becomes a download never replaces the page, so it must not
+            // move the session either.
+            if navigationResponse.isForMainFrame, navigationResponse.canShowMIMEType,
+               let url = navigationResponse.response.url {
                 Task { @MainActor in
                     AuthManager.shared.updateFromNavigation(url: url)
                 }
@@ -617,6 +628,10 @@ struct WebView: NSViewRepresentable {
 
         func download(_ download: WKDownload, didFailWithError error: Error, resumeData: Data?) {
             log.error("Download failed: \(error.localizedDescription, privacy: .public)")
+            let reason = error.localizedDescription
+            Task { @MainActor in
+                CaptureCoordinator.shared.show(Toast(kind: .failure, title: "Download failed", detail: reason))
+            }
         }
 
         /// Appends " 2", " 3", … rather than clobbering a file the user already has.
