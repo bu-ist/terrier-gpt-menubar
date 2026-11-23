@@ -72,7 +72,7 @@ nonisolated enum CompanionBridge {
     // MARK: - Capture
 
     /// The companion's reading of `target`'s front tab, or nil when the bridge is down.
-    static func capture(from target: BrowserTarget) async -> CapturedContext? {
+    static func capture(from target: BrowserTarget, mode: BrowserBridge.CaptureMode = .selection) async -> CapturedContext? {
         guard hostTargets.contains(where: { $0.name == target.name }) else { return nil }
         guard hostIsAlive(target.name) else { return nil }
 
@@ -110,7 +110,7 @@ nonisolated enum CompanionBridge {
         while Date() < deadline {
             if let object = readObject(responseURL), object["id"] as? String == id {
                 guard object["ok"] as? Bool == true else { return nil }
-                return context(from: object, browserName: target.name)
+                return context(from: object, browserName: target.name, mode: mode)
             }
             try? await Task.sleep(for: .milliseconds(100))
         }
@@ -190,10 +190,11 @@ nonisolated enum CompanionBridge {
         return (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
     }
 
-    private static func context(from object: [String: Any], browserName: String) -> CapturedContext? {
+    private static func context(from object: [String: Any], browserName: String, mode: BrowserBridge.CaptureMode = .selection) -> CapturedContext? {
         let selection = (object["selection"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         let body = (object["body"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        let text = selection.isEmpty ? body : selection
+        // "Full page" means the page even when something happens to be selected.
+        let text = (mode == .fullPage && !body.isEmpty) || selection.isEmpty ? body : selection
         guard !text.isEmpty else { return nil }
 
         let url = URL(string: (object["url"] as? String) ?? "")

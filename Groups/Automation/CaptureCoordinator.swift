@@ -35,6 +35,7 @@ struct Toast: Identifiable, Equatable {
         case openPrivacyPane(String)
         case reveal(URL)
         case openApp(URL)
+        case undoClear
 
         var title: String? {
             switch self {
@@ -42,6 +43,7 @@ struct Toast: Identifiable, Equatable {
             case .openAutomationSettings, .openPrivacyPane: return "Open Settings"
             case .reveal: return "Show in Finder"
             case .openApp: return "Open"
+            case .undoClear: return "Undo"
             }
         }
     }
@@ -69,6 +71,9 @@ final class CaptureCoordinator: ObservableObject {
     /// looking frozen for the second or two a cold browser takes to answer.
     @Published private(set) var isWorking = false
     @Published var isTrayExpanded = false
+    /// True while the pointer rests on the toast, so it never times out under the reader.
+    var isToastHovered = false
+    private var recentlyCleared: [CapturedContext] = []
 
     /// Set by `ContentView` once the web view exists.
     weak var webModel: WebViewModel?
@@ -99,7 +104,7 @@ final class CaptureCoordinator: ObservableObject {
             // Companion already returns the full page / ticket form — prefer it when the bridge
             // is up. Fall through to AppleScript (selection or full-page JS).
             if let resolved,
-               let context = await CompanionBridge.capture(from: resolved) {
+               let context = await CompanionBridge.capture(from: resolved, mode: mode) {
                 self.add(context)
                 self.applySuggestedInstruction(for: context)
                 return Toast(
@@ -184,7 +189,12 @@ final class CaptureCoordinator: ObservableObject {
         // just received the URL) over FrontmostAppTracker, which still points at whoever we
         // left when the panel opened.
         try? await Task.sleep(for: .seconds(2.5))
-        await captureBrowser(BrowserTarget.running.first, mode: .fullPage)
+        // NSWorkspace lists apps in launch order, not by recent use, so "first running browser"
+        // was often the wrong one with Safari and Chrome both open.
+        let defaultBrowser = NSWorkspace.shared.urlForApplication(toOpen: url)
+            .flatMap { Bundle(url: $0)?.bundleIdentifier }
+            .flatMap(BrowserTarget.matching(bundleID:))
+        await captureBrowser(defaultBrowser ?? BrowserTarget.running.first, mode: .fullPage)
     }
 
     /// Captures whatever the user has selected inside the TerrierGPT page.
@@ -208,7 +218,7 @@ final class CaptureCoordinator: ObservableObject {
     // MARK: - Managing captures
 
     func add(_ context: CapturedContext) {
-        withAnimation(TG.Motion.morph) {
+        TG.animate(TG.Motion.morph) {
             // Re-capturing the same page replaces the old chip instead of stacking duplicates.
             //
             // Keyed on the URL, and only when there is one. Matching on `source` alone meant
@@ -228,21 +238,25 @@ final class CaptureCoordinator: ObservableObject {
 
     func toggle(_ context: CapturedContext) {
         guard let index = contexts.firstIndex(where: { $0.id == context.id }) else { return }
-        withAnimation(TG.Motion.snap) { contexts[index].isEnabled.toggle() }
+        TG.animate(TG.Motion.snap) { contexts[index].isEnabled.toggle() }
     }
 
     func remove(_ context: CapturedContext) {
-        withAnimation(TG.Motion.morph) {
+        TG.animate(TG.Motion.morph) {
             contexts.removeAll { $0.id == context.id }
             if contexts.isEmpty { isTrayExpanded = false }
         }
     }
 
     func clearContexts() {
-        withAnimation(TG.Motion.morph) {
+        guard !contexts.isEmpty else { return }
+        recentlyCleared = contexts
+        let count = contexts.count
+        TG.animate(TG.Motion.morph) {
             contexts.removeAll()
             isTrayExpanded = false
         }
+        show(Toast(kind: .info, title: count == 1 ? "Removed 1 capture" : "Removed \(count) captures", action: .undoClear))
     }
 
     // MARK: - Using the prompt
@@ -264,7 +278,8 @@ final class CaptureCoordinator: ObservableObject {
     /// The text the "send to" actions act on: the user's selection in the page, else the page
     /// itself, else the composed prompt.
     private func materialToFile() async -> (title: String, body: String, url: URL?) {
-        if let webModel {
+        // Signed out, mid-SSO or offline, "the page" is a login screen or an error.
+        if let webModel, AuthManager.shared.phase == .signedIn {
             let text = await webModel.selectionOrPageText()
             if !text.isEmpty {
                 let title = webModel.pageTitle.isEmpty ? "TerrierGPT" : webModel.pageTitle
@@ -474,7 +489,7 @@ final class CaptureCoordinator: ObservableObject {
         let detail: String?
         switch TerrierInstance.resolve(instance) {
         case .nonprod: detail = "Test · \(TerrierInstance.nonprod.homeURL.host ?? "nonprod")"
-        case .production: detail = "Campus (prod)"
+        case .production: detail = "Prod"
         case .none: detail = nil
         }
         show(Toast(kind: .success, title: "Prompt ready — paste with ⌘V", detail: detail))
@@ -556,18 +571,32 @@ final class CaptureCoordinator: ObservableObject {
     func show(_ toast: Toast) {
         let token = UUID()
         toastToken = token
-        withAnimation(TG.Motion.drift) { self.toast = toast }
+        isToastHovered = false
+        TG.animate(TG.Motion.drift) { self.toast = toast }
+        let spoken = [toast.title, toast.detail].compactMap { $0 }.joined(separator: ". ")
+        AccessibilityNotification.Announcement(spoken).post()
 
         Task { [weak self] in
-            try? await Task.sleep(for: .seconds(toast.kind == .failure ? 7 : 4))
+            try? await Task.sleep(for: .seconds(Self.readingTime(for: toast)))
+            while let self, self.toastToken == token, self.isToastHovered {
+                try? await Task.sleep(for: .milliseconds(500))
+            }
             guard let self, self.toastToken == token else { return }
-            withAnimation(TG.Motion.drift) { self.toast = nil }
+            TG.animate(TG.Motion.drift) { self.toast = nil }
         }
+    }
+
+    /// Long enough to read the detail and reach the button, not just to glimpse the title.
+    private static func readingTime(for toast: Toast) -> Double {
+        let base: Double = toast.kind == .failure ? 12 : 5
+        let withAction = toast.action == .none ? base : max(base, 9)
+        let words = Double((toast.title + " " + (toast.detail ?? "")).split(separator: " ").count)
+        return max(withAction, words / 3.5)
     }
 
     func dismissToast() {
         toastToken = UUID()
-        withAnimation(TG.Motion.drift) { toast = nil }
+        TG.animate(TG.Motion.drift) { toast = nil }
     }
 
     func run(_ action: Toast.Action) {
@@ -583,6 +612,13 @@ final class CaptureCoordinator: ObservableObject {
             NSWorkspace.shared.activateFileViewerSelecting([url])
         case .openApp(let url):
             NSWorkspace.shared.open(url)
+        case .undoClear:
+            let restored = recentlyCleared
+            recentlyCleared = []
+            TG.animate(TG.Motion.morph) {
+                contexts = restored + contexts
+                isTrayExpanded = !contexts.isEmpty
+            }
         }
         dismissToast()
     }
@@ -591,6 +627,12 @@ final class CaptureCoordinator: ObservableObject {
 
     /// Runs an async job, turning any thrown error into a toast the user can act on.
     private func perform(_ job: @escaping () async throws -> Toast) async {
+        // One Apple Event job at a time: a second click while Mail is still answering used to
+        // clear the busy state early and could open the same draft twice.
+        guard !isWorking else {
+            show(Toast(kind: .info, title: "Still working on the last action", detail: "Try again in a moment."))
+            return
+        }
         isWorking = true
         defer { isWorking = false }
         do {

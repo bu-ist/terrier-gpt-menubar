@@ -1,4 +1,5 @@
 import SwiftUI
+import AppKit
 
 /// The session indicator: a glass capsule whose dot reflects the auth phase.
 ///
@@ -49,7 +50,7 @@ struct SessionPill: View {
                 .frame(width: 7, height: 7)
                 .shadow(color: tint.opacity(0.9), radius: 4)
                 .modifier(BreathingDot(active: !reduceMotion))
-        case .signedIn, .signedOut:
+        case .signedIn, .signedOut, .unreachable:
             Circle()
                 .fill(tint.gradient)
                 .frame(width: 7, height: 7)
@@ -68,6 +69,7 @@ struct SessionPill: View {
         case .loading, .signedOut: return TG.idle
         case .authenticating: return TG.working
         case .signedIn: return TG.online
+        case .unreachable: return TG.scarletSoft
         }
     }
 
@@ -77,6 +79,7 @@ struct SessionPill: View {
         case .signedOut: return "Signed out"
         case .authenticating: return "Signing in"
         case .signedIn: return "Signed in"
+        case .unreachable: return "Offline"
         }
     }
 
@@ -86,6 +89,7 @@ struct SessionPill: View {
         case .signedOut: return "Signed out — sign in inside the window if prompted"
         case .authenticating: return "Signing in via BU / Microsoft SSO…"
         case .signedIn: return "Signed in to TerrierGPT"
+        case .unreachable: return "Can't reach TerrierGPT — check your connection or VPN"
         }
     }
 }
@@ -100,7 +104,7 @@ private struct BreathingDot: ViewModifier {
             .scaleEffect(active && expanded ? 1.35 : 1.0)
             .opacity(active && expanded ? 0.55 : 1.0)
             .onAppear {
-                guard active else { return }
+                guard active, !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion else { return }
                 withAnimation(TG.Motion.ambient) { expanded = true }
             }
             .onDisappear { expanded = false }
@@ -113,6 +117,7 @@ private struct BreathingDot: ViewModifier {
         SessionPill(phase: .authenticating)
         SessionPill(phase: .signedIn)
         SessionPill(phase: .signedOut)
+        SessionPill(phase: .unreachable)
     }
     .padding(40)
 }

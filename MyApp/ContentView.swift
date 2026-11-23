@@ -71,6 +71,7 @@ struct ContentView: View {
             model: webModel
         )
         .clipShape(.rect(cornerRadius: TG.Radius.card, style: .continuous))
+        .overlay { if auth.phase == .unreachable { unreachableNotice } }
         .overlay(alignment: .top) { progressLine }
         .overlay {
             // A lit rim, not a border: bright along the top where the panel's light falls,
@@ -95,6 +96,31 @@ struct ContentView: View {
         .shadow(color: .black.opacity(0.30), radius: 20, y: 8)
         .shadow(color: TG.scarlet.opacity(0.10), radius: 28, y: 12)
         .padding(.horizontal, TG.Space.regular)
+    }
+
+    /// Covers the blank page WebKit leaves behind when a load fails, and says what to do.
+    private var unreachableNotice: some View {
+        VStack(spacing: TG.Space.regular) {
+            Image(systemName: "wifi.exclamationmark")
+                .font(.system(size: 28, weight: .semibold))
+                .foregroundStyle(TG.scarletSoft)
+                .accessibilityHidden(true)
+            VStack(spacing: 4) {
+                Text("Can't reach TerrierGPT")
+                    .font(.system(size: 15, weight: .semibold))
+                Text("Check your connection or the BU VPN, then try again.")
+                    .font(.system(size: 12))
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+            }
+            Button("Try Again") { auth.retry() }
+                .buttonStyle(.glassPill(tint: TG.scarlet))
+                .keyboardShortcut(.defaultAction)
+        }
+        .padding(TG.Space.loose)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(.regularMaterial)
+        .accessibilityElement(children: .contain)
     }
 
     /// A scarlet thread across the top of the page while it loads.
@@ -126,7 +152,8 @@ struct ContentView: View {
             ToastView(
                 toast: toast,
                 onAction: { coordinator.run($0) },
-                onDismiss: { coordinator.dismissToast() }
+                onDismiss: { coordinator.dismissToast() },
+                onHover: { coordinator.isToastHovered = $0 }
             )
             .padding(.horizontal, TG.Space.loose)
             .padding(.top, 52)

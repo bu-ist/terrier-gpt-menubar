@@ -168,7 +168,7 @@ private struct ContextChip: View {
         .contentShape(.capsule)
         .onTapGesture(perform: onToggle)
         .onHover { hovering in
-            withAnimation(TG.Motion.snap) { isHovering = hovering }
+            TG.animate(TG.Motion.snap) { isHovering = hovering }
         }
         .tgAnimation(TG.Motion.snap, value: context.isEnabled)
         .help(helpText)
@@ -176,6 +176,12 @@ private struct ContextChip: View {
         .accessibilityLabel("\(context.source.label): \(context.title)")
         .accessibilityValue(context.isEnabled ? "Included in prompt" : "Excluded from prompt")
         .accessibilityAddTraits(.isButton)
+        .accessibilityAction { onToggle() }
+        .accessibilityAction(named: Text("Remove"), onRemove)
+        // Keyboard: Tab to the chip, Space toggles it, Delete removes it.
+        .focusable(interactions: .activate)
+        .onKeyPress(.space) { onToggle(); return .handled }
+        .onDeleteCommand(perform: onRemove)
     }
 
     private var helpText: String {

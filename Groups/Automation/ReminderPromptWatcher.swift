@@ -69,7 +69,7 @@ final class ReminderPromptWatcher: ObservableObject {
             object: store,
             queue: .main
         ) { [weak self] _ in
-            self?.scheduleSweep()
+            MainActor.assumeIsolated { self?.scheduleSweep() }
         }
         scheduleSweep()
         log.info("Watching Reminders list \"\(Self.listName)\"")
@@ -106,6 +106,7 @@ final class ReminderPromptWatcher: ObservableObject {
             }
         }
 
+        var prompts: [String] = []
         for reminder in reminders {
             if let url = reminder.url, url.scheme == Self.processedURLScheme { continue }
             let title = reminder.title?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
@@ -129,11 +130,13 @@ final class ReminderPromptWatcher: ObservableObject {
                 continue
             }
 
-            // ask() already toasts and focuses the chat. One reminder per sweep so a flooded
-            // list doesn't stack panels.
-            CaptureCoordinator.shared.ask(prompt: prompt, instance: nil)
-            break
+            prompts.append(prompt)
         }
+
+        // Every pending reminder goes out in one ask: one panel, one clipboard write, nothing
+        // overwritten by the next sweep that our own save triggers.
+        guard !prompts.isEmpty else { return }
+        CaptureCoordinator.shared.ask(prompt: prompts.joined(separator: "\n\n---\n\n"), instance: nil)
     }
 
     private func requireAccess() async throws {

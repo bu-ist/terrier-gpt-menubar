@@ -15,7 +15,7 @@ final class GlobalHotKey {
     private let log = Logger(subsystem: "com.brianmatute.TerrierGPTMenu", category: "hotkey")
     private var hotKeyRef: EventHotKeyRef?
     private var handlerRef: EventHandlerRef?
-    private var isRegistered = false
+    private(set) var isRegistered = false
 
     /// Defaults: Option + Space. Stored so a future settings row can change it without a rebuild.
     private(set) var isEnabled: Bool = UserDefaults.standard.object(forKey: Keys.enabled) as? Bool ?? true
@@ -69,7 +69,7 @@ final class GlobalHotKey {
             return
         }
 
-        var hotKeyID = EventHotKeyID(signature: OSType(0x54475054), /* 'TGPT' */ id: 1)
+        let hotKeyID = EventHotKeyID(signature: OSType(0x54475054), /* 'TGPT' */ id: 1)
         let hotStatus = RegisterEventHotKey(
             keyCode,
             modifiers,
@@ -80,6 +80,11 @@ final class GlobalHotKey {
         )
         guard hotStatus == noErr else {
             log.error("RegisterEventHotKey failed: \(hotStatus)")
+            CaptureCoordinator.shared.show(Toast(
+                kind: .failure,
+                title: "⌥Space is taken",
+                detail: "Another app already uses Option-Space. Open the panel from the menu bar icon instead."
+            ))
             if let handlerRef { RemoveEventHandler(handlerRef) }
             self.handlerRef = nil
             return

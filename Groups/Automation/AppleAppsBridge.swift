@@ -118,7 +118,13 @@ nonisolated enum NotesBridge {
                 end if
                 set theFolder to folder \(folder.appleScriptLiteral)
                 set matches to (every note of theFolder whose name is \(title.appleScriptLiteral))
-                if (count of matches) is 0 then
+                set canAppend to false
+                if (count of matches) > 0 then
+                    -- Rewriting the body drops images and attachments, so a note with any
+                    -- gets a fresh sibling instead of an append.
+                    if (count of attachments of (item 1 of matches)) is 0 then set canAppend to true
+                end if
+                if not canAppend then
                     set theNote to make new note at theFolder ¬
                         with properties {name:\(title.appleScriptLiteral), body:\(("<h1>" + title.htmlEscaped + "</h1>\n" + html).appleScriptLiteral)}
                 else
