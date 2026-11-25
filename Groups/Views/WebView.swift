@@ -261,7 +261,13 @@ struct WebView: NSViewRepresentable {
 
         context.coordinator.webView = webView
         model.attach(webView)
-        webView.load(URLRequest(url: url))
+        // An Ask link that arrived before the panel ever opened asked for a fresh chat.
+        let pending = AuthManager.shared.pendingHomeURL
+        webView.load(URLRequest(url: pending ?? url))
+        if pending != nil {
+            // Deferred: this runs inside a SwiftUI view update.
+            Task { @MainActor in AuthManager.shared.clearPendingHomeURL() }
+        }
         return webView
     }
 

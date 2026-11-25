@@ -69,6 +69,28 @@ nonisolated enum CompanionBridge {
         }
     }
 
+    /// The host runs on `/usr/bin/python3`, which is only an installer stub until the Command
+    /// Line Tools are installed; without them the bridge can never start.
+    static let pythonIsAvailable: Bool = {
+        let probe = Process()
+        probe.executableURL = URL(fileURLWithPath: "/usr/bin/xcode-select")
+        probe.arguments = ["-p"]
+        probe.standardOutput = FileHandle.nullDevice
+        probe.standardError = FileHandle.nullDevice
+        do {
+            try probe.run()
+            probe.waitUntilExit()
+            return probe.terminationStatus == 0
+        } catch {
+            return false
+        }
+    }()
+
+    /// Whether the companion could serve `target` at all (it ships for Chromium browsers).
+    static func supports(_ target: BrowserTarget) -> Bool {
+        hostTargets.contains { $0.name == target.name }
+    }
+
     // MARK: - Capture
 
     /// The companion's reading of `target`'s front tab, or nil when the bridge is down.

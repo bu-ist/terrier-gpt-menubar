@@ -40,6 +40,7 @@ The Safari phase needs Node and the companion cloned next to this repo
 5. **Never type into the chat box over AppleScript.** Context goes to the clipboard or a handoff.
 6. **Mail / Outlook drafts only — never Send.** ServiceNow writes stay in the Companion (user click).
 7. **Signing:** do not commit a personal Team ID, provisioning profiles, or `xcuserdata/`.
+   The Team ID lives in gitignored `Config/Local.xcconfig` (see `Config/Signing.xcconfig`).
    The Safari extension's sandbox exception is only `~/Library/Application Support/TerrierGPTMenu/`;
    do not widen it.
 8. Recipe chains belong in `cts-recipes`, not in this app.

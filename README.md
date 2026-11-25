@@ -63,8 +63,8 @@ CTS Recipes' `browser-actions.json`. The extension is sandboxed with one excepti
   the companion cloned next to this repo (`TERRIERGPT_COMPANION_DIR` overrides the path).
 - Work here only for the native side: `SafariExtension/Sources`, signing, and entitlements.
 - Bridge tests without Safari: `Scripts/tests/test-safari-handler.sh`.
-- Turn it on: Safari → Settings → Extensions → TerrierGPT Companion. A Debug build is ad hoc signed,
-  so it also needs Develop → *Allow Unsigned Extensions*.
+- Turn it on: Safari → Settings → Extensions → TerrierGPT Companion. Debug builds that aren't
+  distributed through the App Store also need Develop → *Allow Unsigned Extensions*.
 
 ## Integrations, and why each one works the way it does
 
@@ -325,10 +325,14 @@ Still open (lower priority — intentionally not in this app):
 
 1. Clone this repository.
 2. Open `TerrierGPTMenu.xcodeproj` in Xcode.
-3. Select the **TerrierGPTMenu** target → **Signing & Capabilities**:
-   - Enable **Automatically manage signing**
-   - Choose **your** Team (Apple ID)
-   - If needed, change the **Bundle Identifier** to something unique
+3. Set your signing team once, outside the project file:
+   ```bash
+   cp Config/Local.xcconfig.example Config/Local.xcconfig
+   # edit it: DEVELOPMENT_TEAM = <your Team ID>   (Xcode → Settings → Accounts)
+   ```
+   `Config/Local.xcconfig` is gitignored. Don't pick a team in **Signing & Capabilities**:
+   that writes your Team ID into `project.pbxproj`, which is shared.
+   If needed, change the **Bundle Identifier** to something unique.
 4. Choose **My Mac** as the run destination.
 5. Press **Run** (⌘R).
 
@@ -348,7 +352,10 @@ The app appears in the menu bar (not the Dock). Click the sparkles icon to open 
 
 ## Signing note
 
-Each person who clones the repo should select their own team under **Signing & Capabilities**.
+Signing is automatic. The team comes from `Config/Signing.xcconfig`, which is committed with an
+empty `DEVELOPMENT_TEAM` and includes your gitignored `Config/Local.xcconfig` when it exists.
+The app and the Safari extension must sign with the same team. If Xcode says your certificate is
+revoked or expired, make a new one: Xcode → Settings → Accounts → Manage Certificates → + Apple Development.
 
 There are no API keys or server secrets in this project: it only loads the public TerrierGPT
 website and talks to apps already on your Mac.

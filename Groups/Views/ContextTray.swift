@@ -54,7 +54,7 @@ struct ContextTray: View {
 
             Text("\(coordinator.enabledContexts.count) of \(coordinator.contexts.count) in prompt")
                 .font(.system(size: 10, weight: .medium))
-                .foregroundStyle(.tertiary)
+                .foregroundStyle(.secondary)
                 .contentTransition(.numericText())
 
             Spacer()
@@ -68,9 +68,9 @@ struct ContextTray: View {
             } label: {
                 Label("Copy prompt", systemImage: "doc.on.doc")
             }
-            .buttonStyle(.plain)
-            .font(.system(size: 10, weight: .semibold))
-            .foregroundStyle(TG.violet)
+            // The tray's one primary action; Prompt and Clear stay quiet text.
+            .buttonStyle(.glassPill(tint: TG.violet, prominent: true))
+            .controlSize(.small)
             .keyboardShortcut("c", modifiers: [.command, .shift])
             .help("Copy your instruction plus every included capture, to paste into the chat (⇧⌘C)")
 
@@ -136,8 +136,8 @@ private struct ContextChip: View {
                     .lineLimit(1)
                 if let detail = context.detail {
                     Text(detail)
-                        .font(.system(size: 9))
-                        .foregroundStyle(.tertiary)
+                        .font(.system(size: 10))
+                        .foregroundStyle(.secondary)
                         .lineLimit(1)
                 }
             }

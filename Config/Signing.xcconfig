@@ -1,0 +1,8 @@
+// Signing settings shared by every target.
+//
+// The Team ID is personal, so it is not committed. Put yours in Config/Local.xcconfig
+// (gitignored); see Config/Local.xcconfig.example. Without it, Xcode asks for a team.
+
+DEVELOPMENT_TEAM =
+
+#include? "Local.xcconfig"
