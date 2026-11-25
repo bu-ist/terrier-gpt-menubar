@@ -39,6 +39,7 @@
 		5A0000000000000000000011 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		5A0000000000000000000012 /* Companion.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Companion.entitlements; sourceTree = "<group>"; };
 		6F714E113023B93700F8CEE9 /* TerrierGPTMenu-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = "TerrierGPTMenu-Info.plist"; sourceTree = "<group>"; };
+		7C0000000000000000000002 /* Signing.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Signing.xcconfig; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -81,6 +82,7 @@
 				6F714E113023B93700F8CEE9 /* TerrierGPTMenu-Info.plist */,
 				000000000000000000000010 /* MyApp */,
 				5A0000000000000000000060 /* SafariExtension */,
+				7C0000000000000000000001 /* Config */,
 				000000000000000000000020 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -102,6 +104,14 @@
 				5A0000000000000000000012 /* Companion.entitlements */,
 			);
 			path = SafariExtension;
+			sourceTree = "<group>";
+		};
+		7C0000000000000000000001 /* Config */ = {
+			isa = PBXGroup;
+			children = (
+				7C0000000000000000000002 /* Signing.xcconfig */,
+			);
+			path = Config;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -243,6 +253,7 @@
 /* Begin XCBuildConfiguration section */
 		000000000000000011000000 /* Debug configuration for PBXProject "TerrierGPTMenu" */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 7C0000000000000000000002 /* Signing.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
@@ -277,7 +288,6 @@
 				COPY_PHASE_STRIP = NO;
 				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = dwarf;
-				DEVELOPMENT_TEAM = Q9HBRD8A3Z;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
@@ -309,6 +319,7 @@
 		};
 		000000000000000012000000 /* Release configuration for PBXProject "TerrierGPTMenu" */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 7C0000000000000000000002 /* Signing.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
@@ -343,7 +354,6 @@
 				COPY_PHASE_STRIP = NO;
 				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				DEVELOPMENT_TEAM = Q9HBRD8A3Z;
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;

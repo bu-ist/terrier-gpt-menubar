@@ -82,8 +82,8 @@ final class AuthManager: ObservableObject {
     private static let instanceDefaultsKey = "TerrierInstance"
 
     @Published private(set) var phase: SessionPhase = .loading
-    @Published private(set) var isAuthenticated: Bool = false
-    @Published private(set) var isLoading: Bool = true
+    /// Derived, so it can never disagree with `phase`.
+    var isAuthenticated: Bool { phase == .signedIn }
     /// Last main-frame URL the web view reported (debug / future UI).
     @Published private(set) var lastNavigationURL: URL?
 
@@ -155,11 +155,6 @@ final class AuthManager: ObservableObject {
                 return
             }
         }
-        // Keep the dot green during soft reloads of the app itself; only show the loading
-        // state when we don't already have a settled session.
-        if phase != .signedIn {
-            isLoading = true
-        }
     }
 
     func noteNavigationFailed(error: Error) {
@@ -177,7 +172,6 @@ final class AuthManager: ObservableObject {
         if phase == .loading || phase == .authenticating {
             apply(phase: .signedOut)
         }
-        isLoading = false
     }
 
     /// After a failed load: start over from the instance's home page.
@@ -232,8 +226,6 @@ final class AuthManager: ObservableObject {
 
     private func apply(phase newPhase: SessionPhase) {
         phase = newPhase
-        isAuthenticated = (newPhase == .signedIn)
-        isLoading = (newPhase == .loading || newPhase == .authenticating)
     }
 
     /// Map a main-frame URL to a session phase.

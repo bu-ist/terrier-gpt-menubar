@@ -47,3 +47,6 @@ Secrets.xcconfig
 
 # Archives
 *.xcarchive
+
+# Per-machine signing (see Config/Local.xcconfig.example)
+Config/Local.xcconfig

@@ -18,9 +18,18 @@ struct ActionDock: View {
 
     @Namespace private var glass
 
-    @State private var showReminderSheet = false
-    @State private var showEventSheet = false
-    @State private var showHandoff = false
+    /// At most one dock popover is open at a time.
+    private enum DockPopover { case reminder, event, handoff }
+    @State private var popover: DockPopover?
+
+    private func isShowing(_ kind: DockPopover) -> Binding<Bool> {
+        Binding(
+            get: { popover == kind },
+            set: { open in
+                if open { popover = kind } else if popover == kind { popover = nil }
+            }
+        )
+    }
 
     var body: some View {
         GlassEffectContainer(spacing: TG.Space.merge) {
@@ -34,25 +43,25 @@ struct ActionDock: View {
                 notesButton
 
                 Button {
-                    showReminderSheet = true
+                    popover = .reminder
                 } label: {
                     Image(systemName: "checklist")
                 }
                 .buttonStyle(.glassCircle(tint: TG.ember, id: "reminder", in: glass))
-                .popover(isPresented: $showReminderSheet, arrowEdge: .top) {
-                    ReminderComposer(coordinator: coordinator, isPresented: $showReminderSheet)
+                .popover(isPresented: isShowing(.reminder), arrowEdge: .top) {
+                    ReminderComposer(coordinator: coordinator, isPresented: isShowing(.reminder))
                 }
                 .help("Reminders — turn the answer into a reminder")
                 .accessibilityLabel("Save to Reminders")
 
                 Button {
-                    showEventSheet = true
+                    popover = .event
                 } label: {
                     Image(systemName: "calendar.badge.plus")
                 }
                 .buttonStyle(.glassCircle(tint: TG.scarlet, id: "event", in: glass))
-                .popover(isPresented: $showEventSheet, arrowEdge: .top) {
-                    EventComposer(coordinator: coordinator, isPresented: $showEventSheet)
+                .popover(isPresented: isShowing(.event), arrowEdge: .top) {
+                    EventComposer(coordinator: coordinator, isPresented: isShowing(.event))
                 }
                 .help("Calendar — turn the answer into an event")
                 .accessibilityLabel("Save to Calendar")
@@ -62,15 +71,15 @@ struct ActionDock: View {
                 Spacer(minLength: TG.Space.snug)
 
                 Button {
-                    showHandoff = true
+                    popover = .handoff
                 } label: {
                     Label("Hand off", systemImage: "arrow.up.forward.app")
                 }
                 .buttonStyle(.glassPill(tint: TG.jade, prominent: true, id: "handoff", in: glass))
                 .keyboardShortcut("j", modifiers: [.command, .shift])
                 .help("Send TerrierGPT's answer, with its context, to Claude, Gemini, or Grok (⇧⌘J)")
-                .popover(isPresented: $showHandoff, arrowEdge: .top) {
-                    HandoffPicker(coordinator: coordinator, isPresented: $showHandoff)
+                .popover(isPresented: isShowing(.handoff), arrowEdge: .top) {
+                    HandoffPicker(coordinator: coordinator, isPresented: isShowing(.handoff))
                 }
             }
             .padding(.leading, TG.Space.regular + 2)
@@ -218,7 +227,7 @@ private struct HandoffPicker: View {
                 Text("sends to \(last.name)")
             }
             .font(.system(size: 10, weight: .medium))
-            .foregroundStyle(.tertiary)
+            .foregroundStyle(.secondary)
             .frame(maxWidth: .infinity, alignment: .trailing)
         }
         .padding(TG.Space.loose)

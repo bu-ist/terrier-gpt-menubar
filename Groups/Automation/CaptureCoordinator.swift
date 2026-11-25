@@ -120,10 +120,14 @@ final class CaptureCoordinator: ObservableObject {
             self.add(context)
             self.applySuggestedInstruction(for: context)
             let modeLabel = mode == .fullPage ? "Full page · " : ""
+            // Say why the richer companion capture was skipped, instead of falling back silently.
+            let bridgeHint = resolved.map(CompanionBridge.supports) == true && !CompanionBridge.pythonIsAvailable
+                ? " · Companion bridge needs Command Line Tools: run xcode-select --install"
+                : ""
             return Toast(
                 kind: context.partial == nil ? .success : .info,
                 title: "Captured from \(context.source.label)",
-                detail: context.partial ?? "\(modeLabel)\(context.title)"
+                detail: (context.partial ?? "\(modeLabel)\(context.title)") + bridgeHint
             )
         }
     }
